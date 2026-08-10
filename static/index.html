@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestionale_Gym - Pannello di Controllo</title>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome per icone -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js per grafici -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <i class="fa-solid fa-dumbbell logo-icon"></i>
+                <span class="logo-text">Gestionale_Gym</span>
+            </div>
+
+            <!-- Widget Profilo Utente Corrente -->
+            <div class="user-widget" id="userWidget">
+                <div class="user-avatar">
+                    <i class="fa-solid fa-user"></i>
+                </div>
+                <div class="user-info">
+                    <h4 id="userWidgetName">Nessun utente</h4>
+                    <p id="userWidgetRole">Visitatore</p>
+                </div>
+            </div>
+
+            <!-- Menu di Navigazione -->
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-tab="tab-client" id="navClient">
+                    <i class="fa-solid fa-user-gear"></i> Vista Cliente
+                </a>
+                <a href="#" class="nav-item" data-tab="tab-admin" id="navAdmin">
+                    <i class="fa-solid fa-chart-line"></i> Vista Admin
+                </a>
+                <a href="#" class="nav-item" data-tab="tab-tornello" id="navTornello">
+                    <i class="fa-solid fa-door-open"></i> Tornello Check-in
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button class="btn btn-secondary btn-full" id="logoutBtn" style="display: none;">
+                    <i class="fa-solid fa-right-from-bracket"></i> Disconnetti
+                </button>
+                <div class="developer-credit">Progetto Ingegneria del Software</div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT AREA -->
+        <main class="main-content">
+            
+            <!-- SEZIONE ACCESSO (LOGIN / REGISTRAZIONE) - Mostrata se non loggati -->
+            <section class="auth-section" id="authSection">
+                <div class="auth-card">
+                    <div class="auth-tabs">
+                        <button class="auth-tab active" id="tabLoginBtn">Accedi</button>
+                        <button class="auth-tab" id="tabRegisterBtn">Registrati</button>
+                    </div>
+
+                    <!-- Modulo Login -->
+                    <form id="loginForm" class="auth-form">
+                        <h2>Accedi al Gestionale</h2>
+                        <p class="auth-subtext">Inserisci le tue credenziali per accedere al tuo profilo palestra.</p>
+                        <div class="form-group">
+                            <label for="loginEmail">Email</label>
+                            <div class="input-icon-wrapper">
+                                <i class="fa-solid fa-envelope"></i>
+                                <input type="email" id="loginEmail" placeholder="nome@esempio.com" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="loginPassword">Password</label>
+                            <div class="input-icon-wrapper">
+                                <i class="fa-solid fa-lock"></i>
+                                <input type="password" id="loginPassword" placeholder="••••••••" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-full">
+                            <i class="fa-solid fa-right-to-bracket"></i> Accedi
+                        </button>
+                    </form>
+
+                    <!-- Modulo Registrazione -->
+                    <form id="registerForm" class="auth-form hidden">
+                        <h2>Crea il tuo Account</h2>
+                        <p class="auth-subtext">Registrati per abbonarti e prenotare servizi e corsi.</p>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="regFirstName">Nome</label>
+                                <input type="text" id="regFirstName" placeholder="Mario" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="regLastName">Cognome</label>
+                                <input type="text" id="regLastName" placeholder="Rossi" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="regEmail">Email</label>
+                            <div class="input-icon-wrapper">
+                                <i class="fa-solid fa-envelope"></i>
+                                <input type="email" id="regEmail" placeholder="mario.rossi@email.com" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="regPassword">Password</label>
+                            <div class="input-icon-wrapper">
+                                <i class="fa-solid fa-lock"></i>
+                                <input type="password" id="regPassword" placeholder="Scegli una password sicura" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="regPhone">Cellulare</label>
+                                <input type="text" id="regPhone" placeholder="3331234567">
+                            </div>
+                            <div class="form-group">
+                                <label for="regFiscalCode">Codice Fiscale</label>
+                                <input type="text" id="regFiscalCode" placeholder="RSSMRA80A01F205X">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-success btn-full">
+                            <i class="fa-solid fa-user-plus"></i> Registrati ed Entra
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- TAB 1: VISTA CLIENTE -->
+            <section class="tab-pane active" id="tab-client" style="display: none;">
+                <div class="client-header">
+                    <div class="welcome-text">
+                        <h1>Pannello Personale Cliente</h1>
+                        <p>Gestisci il tuo portafoglio, acquista abbonamenti e prenota le tue attività in palestra.</p>
+                    </div>
+                </div>
+
+                <!-- CARTE DI RIEPILOGO CLIENTE -->
+                <div class="stats-grid">
+                    <!-- Portafoglio Virtuale -->
+                    <div class="glass-card wallet-card">
+                        <div class="card-header-icon bg-purple">
+                            <i class="fa-solid fa-wallet"></i>
+                        </div>
+                        <div class="card-details">
+                            <h3>Portafoglio Virtuale</h3>
+                            <div class="balance-display" id="clientBalance">0.00 €</div>
+                        </div>
+                        <div class="card-action">
+                            <button class="btn btn-secondary btn-sm" id="openRechargeModalBtn">
+                                <i class="fa-solid fa-plus"></i> Ricarica
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Stato Abbonamento -->
+                    <div class="glass-card subscription-status-card">
+                        <div class="card-header-icon" id="subStatusIcon">
+                            <i class="fa-solid fa-calendar-check"></i>
+                        </div>
+                        <div class="card-details">
+                            <h3>Abbonamento Attivo</h3>
+                            <div class="status-display" id="clientSubName">Nessuno</div>
+                            <p class="status-subtext" id="clientSubDates">-</p>
+                        </div>
+                        <div class="card-action" id="subStatusBadge">
+                            <span class="badge badge-danger">Inattivo</span>
+                        </div>
+                    </div>
+
+                    <!-- Profilo Cliente -->
+                    <div class="glass-card profile-card">
+                        <div class="card-header-icon bg-info">
+                            <i class="fa-solid fa-id-card"></i>
+                        </div>
+                        <div class="card-details">
+                            <h3>Mio Profilo & ID</h3>
+                            <div class="status-display" style="font-size: 0.8rem; font-family: monospace; user-select: all; cursor: pointer;" id="profileIdDisplay" title="ID Membro (Fai doppio click per copiare)">-</div>
+                            <p class="status-subtext" id="profileEmailDisplay">-</p>
+                        </div>
+                        <div class="card-action">
+                            <button class="btn btn-secondary btn-sm" id="openProfileModalBtn">
+                                <i class="fa-solid fa-pen-to-square"></i> Modifica
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SEZIONE ABBONAMENTI DISPONIBILI -->
+                <div class="section-title-wrapper">
+                    <h2>Abbonamenti Disponibili</h2>
+                    <p>Scegli il piano più adatto a te per accedere alla palestra.</p>
+                </div>
+                <div class="subscription-plans-grid" id="subscriptionPlansGrid">
+                    <!-- Caricato dinamicamente via JS -->
+                </div>
+
+                <!-- PRENOTAZIONE CORSI E SERVIZI -->
+                <div class="client-booking-section">
+                    <div class="booking-column">
+                        <div class="section-title-wrapper">
+                            <h2>Corsi e Servizi</h2>
+                            <p>Prenota corsi di gruppo, sauna o poltrona massaggiante.</p>
+                        </div>
+                        <div class="glass-card padding-20">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="bookingService">Servizio / Corso</label>
+                                    <select id="bookingService" required>
+                                        <option value="">Seleziona un servizio o corso...</option>
+                                        <optgroup label="Servizi Benessere">
+                                            <option value="sauna">Sauna Relax (10.00€ - Gratis per VIP)</option>
+                                            <option value="massage_chair">Poltrona Massaggiante (5.00€ - Gratis per VIP)</option>
+                                        </optgroup>
+                                        <optgroup label="Corsi di Gruppo" id="bookingCoursesOptGroup">
+                                            <!-- Corsi caricati dinamicamente -->
+                                        </optgroup>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="bookingDate">Data Prenotazione</label>
+                                    <input type="date" id="bookingDate" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="bookingTimeSlot">Fascia Oraria</label>
+                                    <select id="bookingTimeSlot" required>
+                                        <option value="09:00 - 10:00">09:00 - 10:00</option>
+                                        <option value="10:00 - 11:00">10:00 - 11:00</option>
+                                        <option value="11:00 - 12:00">11:00 - 12:00</option>
+                                        <option value="14:00 - 15:00">14:00 - 15:00</option>
+                                        <option value="15:00 - 16:00">15:00 - 16:00</option>
+                                        <option value="16:00 - 17:00">16:00 - 17:00</option>
+                                        <option value="18:00 - 19:00">18:00 - 19:00</option>
+                                        <option value="19:30 - 20:30">19:30 - 20:30</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary btn-full margin-top-10" id="submitBookingBtn">
+                                <i class="fa-solid fa-calendar-plus"></i> Conferma Prenotazione
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="booking-column">
+                        <div class="section-title-wrapper">
+                            <h2>Le mie Prenotazioni</h2>
+                            <p>Visualizza e gestisci le tue sessioni prenotate.</p>
+                        </div>
+                        <div class="glass-card padding-0 overflow-hidden">
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Servizio</th>
+                                            <th>Data</th>
+                                            <th>Orario</th>
+                                            <th>Costo</th>
+                                            <th>Azione</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="clientBookingsTable">
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted">Caricamento...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SMART BAR -->
+                <div class="section-title-wrapper">
+                    <h2>Smart Bar</h2>
+                    <p>Acquista bevande o snack proteici consumando il credito del tuo portafoglio virtuale.</p>
+                </div>
+                <div class="products-grid" id="productsGrid">
+                    <!-- Caricato dinamicamente via JS -->
+                </div>
+            </section>
+
+            <!-- TAB 2: VISTA ADMIN -->
+            <section class="tab-pane" id="tab-admin" style="display: none;">
+                
+                <!-- SCHERMATA LOGIN ADMIN (Mostrata se non loggati come admin) -->
+                <div id="adminAuthContainer" class="auth-section">
+                    <div class="auth-card">
+                        <form id="adminLoginForm" class="auth-form">
+                            <h2>Accesso Amministratore</h2>
+                            <p class="auth-subtext">Inserisci le credenziali di amministrazione per consultare i log e le statistiche finanziarie.</p>
+                            
+                            <div class="form-group">
+                                <label for="adminUsername">Username</label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-solid fa-user-shield"></i>
+                                    <input type="text" id="adminUsername" placeholder="Inserisci username..." required>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="adminPassword">Password</label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-solid fa-lock"></i>
+                                    <input type="password" id="adminPassword" placeholder="••••••••" required>
+                                </div>
+                            </div>
+                            
+                            <div class="badge badge-warning btn-full text-center margin-top-10" style="padding: 10px; margin-bottom: 15px;">
+                                <i class="fa-solid fa-info-circle"></i> Credenziali default: <strong>admin</strong> / <strong>admin</strong>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary btn-full">
+                                <i class="fa-solid fa-right-to-bracket"></i> Accedi Area Admin
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- CONTENUTO PANNELLO ADMIN (Nascosto di default, mostrato dopo login admin) -->
+                <div id="adminDashboardContainer" class="hidden">
+                    <div class="admin-header">
+                        <div class="welcome-text" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <div>
+                                <h1>Pannello di Amministrazione</h1>
+                                <p>Visualizza i report finanziari, l'affluenza in tempo reale e gestisci i clienti registrati.</p>
+                            </div>
+                            <button class="btn btn-danger btn-sm" id="adminLogoutBtn">
+                                <i class="fa-solid fa-lock"></i> Esci Admin
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- REPORT FINANZIARI GENERALI -->
+                    <div class="stats-grid">
+                        <div class="glass-card admin-stat-card">
+                            <div class="stat-icon bg-purple"><i class="fa-solid fa-euro-sign"></i></div>
+                            <div class="stat-info">
+                                <span class="stat-label">Ricavi Totali</span>
+                                <span class="stat-value" id="statTotalRevenue">0.00 €</span>
+                            </div>
+                        </div>
+                        <div class="glass-card admin-stat-card">
+                            <div class="stat-icon bg-success"><i class="fa-solid fa-address-card"></i></div>
+                            <div class="stat-info">
+                                <span class="stat-label">Ricavi Abbonamenti</span>
+                                <span class="stat-value" id="statSubRevenue">0.00 €</span>
+                            </div>
+                        </div>
+                        <div class="glass-card admin-stat-card">
+                            <div class="stat-icon bg-info"><i class="fa-solid fa-mug-hot"></i></div>
+                            <div class="stat-info">
+                                <span class="stat-label">Ricavi Smart Bar</span>
+                                <span class="stat-value" id="statBarRevenue">0.00 €</span>
+                            </div>
+                        </div>
+                        <div class="glass-card admin-stat-card">
+                            <div class="stat-icon bg-warning"><i class="fa-solid fa-spa"></i></div>
+                            <div class="stat-info">
+                                <span class="stat-label">Ricavi Servizi Extra</span>
+                                <span class="stat-value" id="statServicesRevenue">0.00 €</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- GRAFICI ANALYTICS -->
+                    <div class="charts-grid">
+                        <div class="glass-card padding-20">
+                            <h3>Affluenza Oraria in Palestra (Check-in convalidati)</h3>
+                            <div class="chart-container">
+                                <canvas id="affluenceChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="glass-card padding-20">
+                            <h3>Popolarità Attività e Corsi (Prenotazioni)</h3>
+                            <div class="chart-container">
+                                <canvas id="popularityChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- GESTIONE UTENTI -->
+                    <div class="section-title-wrapper">
+                        <h2>Anagrafica Utenti Palestra</h2>
+                        <p>Visualizza la lista degli utenti iscritti, gestisci il loro credito ed effettua azioni amministrative.</p>
+                    </div>
+                    <div class="glass-card padding-0 overflow-hidden">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Nome e Cognome</th>
+                                        <th>Email</th>
+                                        <th>Telefono</th>
+                                        <th>Credito Portafoglio</th>
+                                        <th>Stato Account</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminMembersTable">
+                                    <!-- Caricato dinamicamente via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: TORNELLO DI INGRESSO -->
+            <section class="tab-pane" id="tab-tornello" style="display: none;">
+                <div class="tornello-header">
+                    <div class="welcome-text">
+                        <h1>Simulatore Tornello Check-in</h1>
+                        <p>Simula la scansione della tessera o badge d'ingresso dei membri per testare la convalida automatica.</p>
+                    </div>
+                </div>
+
+                <div class="tornello-container">
+                    <div class="tornello-device-card glass-card">
+                        <div class="device-header">
+                            <div class="device-brand"><i class="fa-solid fa-shield-halved"></i> GYM-PASS SYSTEM v1.0</div>
+                            <div class="device-status" id="deviceStatus">PRONTO</div>
+                        </div>
+
+                        <!-- INDICATORE VISIVO PRINCIPALE (LUCE TORNELLO) -->
+                        <div class="tornello-light-ring" id="tornelloLightRing">
+                            <div class="tornello-light-inner">
+                                <i class="fa-solid fa-id-card-clip" id="tornelloStatusIcon"></i>
+                                <span class="light-text" id="tornelloStatusText">ACCENDA IL BADGE</span>
+                            </div>
+                        </div>
+
+                        <!-- SIMULATORE BADGE -->
+                        <form id="checkInForm" class="device-input-form">
+                            <div class="form-group">
+                                <label for="checkInInput">Inserisci Email o ID Membro</label>
+                                <div class="input-icon-wrapper">
+                                    <i class="fa-solid fa-barcode"></i>
+                                    <input type="text" id="checkInInput" placeholder="Inserisci email membro..." required>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-full">
+                                <i class="fa-solid fa-sensor"></i> Scansiona Tessera
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- ULTIMI ACCESSI IN TEMPO REALE -->
+                    <div class="tornello-logs-card glass-card">
+                        <h3>Ultimi Accessi Registrati</h3>
+                        <p class="section-subtext">Storico dei passaggi al tornello in tempo reale.</p>
+                        <div class="access-logs-list" id="tornelloLogsList">
+                            <!-- Caricato dinamicamente via JS -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MODALE DI RICARICA CREDITO -->
+    <div class="modal" id="rechargeModal">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h2>Ricarica Portafoglio Virtuale</h2>
+                <button class="modal-close" id="closeRechargeModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Inserisci l'importo che desideri aggiungere al tuo saldo.</p>
+                <div class="recharge-shortcuts">
+                    <button class="btn btn-secondary shortcut-btn" data-value="10">10 €</button>
+                    <button class="btn btn-secondary shortcut-btn" data-value="20">20 €</button>
+                    <button class="btn btn-secondary shortcut-btn" data-value="50">50 €</button>
+                    <button class="btn btn-secondary shortcut-btn" data-value="100">100 €</button>
+                </div>
+                <div class="form-group margin-top-20">
+                    <label for="rechargeAmountInput">Importo Personalizzato (€)</label>
+                    <input type="number" id="rechargeAmountInput" placeholder="25.00" min="1" step="0.01">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelRechargeBtn">Annulla</button>
+                <button class="btn btn-success" id="confirmRechargeBtn">Procedi con il pagamento</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE DI MODIFICA PROFILO -->
+    <div class="modal" id="profileModal">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h2>Modifica Dati Profilo</h2>
+                <button class="modal-close" id="closeProfileModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="auth-subtext">Aggiorna le tue informazioni personali del profilo.</p>
+                <form id="editProfileForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="editFirstName">Nome</label>
+                            <input type="text" id="editFirstName" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="editLastName">Cognome</label>
+                            <input type="text" id="editLastName" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="editPhone">Cellulare</label>
+                        <input type="text" id="editPhone">
+                    </div>
+                    <div class="form-group">
+                        <label for="editFiscalCode">Codice Fiscale</label>
+                        <input type="text" id="editFiscalCode">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelProfileBtn">Annulla</button>
+                <button class="btn btn-success" id="confirmProfileBtn">Salva Modifiche</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale Notifiche/Alert personalizzato -->
+    <div class="toast" id="toast">Notifica</div>
+
+    <!-- Custom JS App -->
+    <script src="app.js"></script>
+</body>
+</html>
