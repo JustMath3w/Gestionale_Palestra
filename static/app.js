@@ -737,6 +737,9 @@ async function loadAdminDashboard() {
 
         // 2. Anagrafica Utenti
         loadAdminMembersTable();
+
+        // 3. Tipologie Abbonamento (RF6)
+        loadAdminSubTypesTable();
     } catch (e) {
         console.error("Errore caricamento statistiche admin", e);
     }
@@ -922,6 +925,169 @@ async function adminToggleStatus(memberId) {
     } catch (e) {}
 }
 
+
+// --- GESTIONE ABBONAMENTI ADMIN (RF6) ---
+const subTypeModal = document.getElementById("subTypeModal");
+const openAddSubBtn = document.getElementById("openAddSubBtn");
+const closeSubTypeModalBtn = document.getElementById("closeSubTypeModalBtn");
+const cancelSubTypeBtn = document.getElementById("cancelSubTypeBtn");
+const confirmSubTypeBtn = document.getElementById("confirmSubTypeBtn");
+
+// Apri modale per nuovo abbonamento
+if (openAddSubBtn) {
+    openAddSubBtn.addEventListener("click", () => {
+        document.getElementById("subTypeModalTitle").textContent = "Nuova Tipologia Abbonamento";
+        const idInput = document.getElementById("subTypeId");
+        idInput.value = "";
+        idInput.disabled = false;
+        document.getElementById("subTypeName").value = "";
+        document.getElementById("subTypePrice").value = "";
+        document.getElementById("subTypeDuration").value = "";
+        
+        // Deseleziona tutti i servizi
+        document.getElementById("srvSalaPesi").checked = false;
+        document.getElementById("srvCorsi").checked = false;
+        document.getElementById("srvSauna").checked = false;
+        document.getElementById("srvPoltrona").checked = false;
+        document.getElementById("srvBevande").checked = false;
+
+        subTypeModal.classList.add("open");
+    });
+}
+
+// Chiudi modale
+if (closeSubTypeModalBtn) closeSubTypeModalBtn.addEventListener("click", () => subTypeModal.classList.remove("open"));
+if (cancelSubTypeBtn) cancelSubTypeBtn.addEventListener("click", () => subTypeModal.classList.remove("open"));
+
+// Salva abbonamento (RF6 - Create & Update)
+if (confirmSubTypeBtn) {
+    confirmSubTypeBtn.addEventListener("click", async () => {
+        const idInput = document.getElementById("subTypeId");
+        const id = idInput.value.trim().toLowerCase();
+        const name = document.getElementById("subTypeName").value.trim();
+        const price = parseFloat(document.getElementById("subTypePrice").value);
+        const duration_days = parseInt(document.getElementById("subTypeDuration").value);
+
+        if (!id || !name || isNaN(price) || isNaN(duration_days)) {
+            showToast("Compila tutti i campi correttamente.", "error");
+            return;
+        }
+
+        // Costruisci l'elenco dei servizi selezionati
+        const services = [];
+        if (document.getElementById("srvSalaPesi").checked) services.push("sala_pesi");
+        if (document.getElementById("srvCorsi").checked) services.push("corsi");
+        if (document.getElementById("srvSauna").checked) services.push("sauna");
+        if (document.getElementById("srvPoltrona").checked) services.push("poltrona_massaggio");
+        if (document.getElementById("srvBevande").checked) services.push("bevande");
+
+        const payload = {
+            id,
+            name,
+            price,
+            duration_days,
+            services
+        };
+
+        try {
+            const response = await fetch("/api/subscriptions/types", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                showToast("Tipologia abbonamento salvata con successo!", "success");
+                subTypeModal.classList.remove("open");
+                loadAdminDashboard();
+            } else {
+                const err = await response.json();
+                showToast(err.detail || "Errore durante il salvataggio", "error");
+            }
+        } catch (e) {
+            showToast("Errore di connessione al server", "error");
+        }
+    });
+}
+
+window.editSubType = editSubType;
+window.deleteSubType = deleteSubType;
+
+// Carica la tabella degli abbonamenti nel pannello Admin
+async function loadAdminSubTypesTable() {
+    try {
+        const response = await fetch("/api/subscriptions/types");
+        const subTypes = await response.json();
+        const tbody = document.getElementById("adminSubTypesTable");
+        if (!tbody) return;
+        tbody.innerHTML = "";
+
+        subTypes.forEach(st => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td><code>${st.id}</code></td>
+                <td><strong>${st.name}</strong></td>
+                <td>${st.price.toFixed(2)} €</td>
+                <td>${st.duration_days} giorni</td>
+                <td>${st.services.map(s => `<span class="badge badge-secondary" style="font-size: 0.7rem; margin-right: 2px;">${s}</span>`).join('') || 'Nessuno'}</td>
+                <td>
+                    <button class="btn btn-secondary btn-sm" onclick="editSubType('${st.id}', '${st.name.replace(/'/g, "\\'")}', ${st.price}, ${st.duration_days}, '${st.services.join(',')}')" title="Modifica">
+                        <i class="fa-solid fa-pen"></i> Modifica
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteSubType('${st.id}')" title="Rimuovi">
+                        <i class="fa-solid fa-trash"></i> Elimina
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (e) {
+        console.error("Errore caricamento tipi abbonamento", e);
+    }
+}
+
+// Prepara la modifica dell'abbonamento
+function editSubType(id, name, price, duration, servicesStr) {
+    document.getElementById("subTypeModalTitle").textContent = "Modifica Tipologia Abbonamento";
+    
+    const idInput = document.getElementById("subTypeId");
+    idInput.value = id;
+    idInput.disabled = true; // Non modifichiamo la chiave primaria
+    
+    document.getElementById("subTypeName").value = name;
+    document.getElementById("subTypePrice").value = price;
+    document.getElementById("subTypeDuration").value = duration;
+
+    const services = servicesStr ? servicesStr.split(',') : [];
+    document.getElementById("srvSalaPesi").checked = services.includes("sala_pesi");
+    document.getElementById("srvCorsi").checked = services.includes("corsi");
+    document.getElementById("srvSauna").checked = services.includes("sauna");
+    document.getElementById("srvPoltrona").checked = services.includes("poltrona_massaggio");
+    document.getElementById("srvBevande").checked = services.includes("bevande");
+
+    subTypeModal.classList.add("open");
+}
+
+// Rimuovi tipologia di abbonamento (RF6 - Delete)
+async function deleteSubType(subTypeId) {
+    if (!confirm(`Sei sicuro di voler eliminare la tipologia di abbonamento '${subTypeId}'? Questa azione non può essere annullata.`)) return;
+
+    try {
+        const response = await fetch(`/api/subscriptions/types/${subTypeId}`, {
+            method: "DELETE"
+        });
+
+        if (response.ok) {
+            showToast("Tipologia abbonamento rimossa con successo!", "success");
+            loadAdminDashboard();
+        } else {
+            const err = await response.json();
+            showToast(err.detail || "Errore durante l'eliminazione", "error");
+        }
+    } catch (e) {
+        showToast("Errore di connessione al server", "error");
+    }
+}
 
 
 // ==========================================

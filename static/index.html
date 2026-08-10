@@ -411,6 +411,38 @@
                             </table>
                         </div>
                     </div>
+
+                    <!-- GESTIONE ABBONAMENTI (RF6) -->
+                    <div class="section-title-wrapper margin-top-40">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <div>
+                                <h2>Configurazione Abbonamenti (RF6)</h2>
+                                <p>Crea, modifica o rimuovi le tipologie di abbonamento offerte dalla palestra.</p>
+                            </div>
+                            <button class="btn btn-primary" id="openAddSubBtn">
+                                <i class="fa-solid fa-plus"></i> Nuovo Abbonamento
+                            </button>
+                        </div>
+                    </div>
+                    <div class="glass-card padding-0 overflow-hidden" style="margin-bottom: 40px;">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Codice ID</th>
+                                        <th>Nome Abbonamento</th>
+                                        <th>Prezzo (€)</th>
+                                        <th>Durata (Giorni)</th>
+                                        <th>Servizi Inclusi</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminSubTypesTable">
+                                    <!-- Caricato dinamicamente via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -530,10 +562,66 @@
         </div>
     </div>
 
+    <!-- MODALE DI AGGIUNTA/MODIFICA ABBONAMENTO (RF6) -->
+    <div class="modal" id="subTypeModal">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h2 id="subTypeModalTitle">Nuova Tipologia Abbonamento</h2>
+                <button class="modal-close" id="closeSubTypeModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="subTypeForm">
+                    <div class="form-group">
+                        <label for="subTypeId">Codice ID (singola parola minuscola, es: basic)</label>
+                        <input type="text" id="subTypeId" required placeholder="es: basic">
+                    </div>
+                    <div class="form-group">
+                        <label for="subTypeName">Nome Abbonamento</label>
+                        <input type="text" id="subTypeName" required placeholder="es: Basic Pass">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="subTypePrice">Prezzo (€)</label>
+                            <input type="number" id="subTypePrice" required step="0.01" min="0" placeholder="39.99">
+                        </div>
+                        <div class="form-group">
+                            <label for="subTypeDuration">Durata (Giorni)</label>
+                            <input type="number" id="subTypeDuration" required min="1" placeholder="30">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Servizi Inclusi nel Piano</label>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px;">
+                            <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
+                                <input type="checkbox" id="srvSalaPesi" value="sala_pesi"> Sala Pesi
+                            </label>
+                            <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
+                                <input type="checkbox" id="srvCorsi" value="corsi"> Corsi di Gruppo
+                            </label>
+                            <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
+                                <input type="checkbox" id="srvSauna" value="sauna"> Area Sauna
+                            </label>
+                            <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
+                                <input type="checkbox" id="srvPoltrona" value="poltrona_massaggio"> Poltrona Massaggiante
+                            </label>
+                            <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
+                                <input type="checkbox" id="srvBevande" value="bevande"> Bevande Gratis
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelSubTypeBtn">Annulla</button>
+                <button class="btn btn-success" id="confirmSubTypeBtn">Salva Abbonamento</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modale Notifiche/Alert personalizzato -->
     <div class="toast" id="toast">Notifica</div>
 
     <!-- Custom JS App -->
-    <script src="app.js"></script>
+    <script src="app.js?v=1.1"></script>
 </body>
 </html>
