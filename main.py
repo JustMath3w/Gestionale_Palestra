@@ -580,16 +580,27 @@ def get_gym_statistics(uow: GymUnitOfWork = Depends(get_uow)):
     affluence_by_hour = {str(h).zfill(2) + ":00": 0 for h in range(7, 23)} # Orario palestra dalle 7 alle 22
     all_logs = uow.access_logs.get_all()
     
+    unique_days = set()
     for log in all_logs:
         if log.is_allowed:
             # Estrarre l'ora dal timestamp (formato YYYY-MM-DD HH:MM:SS)
             try:
                 log_time = datetime.strptime(log.timestamp, "%Y-%m-%d %H:%M:%S")
+                unique_days.add(log_time.date())
                 hour_key = str(log_time.hour).zfill(2) + ":00"
                 if hour_key in affluence_by_hour:
                     affluence_by_hour[hour_key] += 1
             except ValueError:
                 pass
+                
+    affluence_totals = affluence_by_hour.copy()
+    num_days = len(unique_days) if len(unique_days) > 0 else 1
+    for k in affluence_by_hour:
+        affluence_by_hour[k] = round(affluence_by_hour[k] / num_days, 1)
+        
+    # Trova le 3 fasce orarie più popolari
+    sorted_hours = sorted(affluence_by_hour.items(), key=lambda x: x[1], reverse=True)
+    peak_hours = [hour for hour, avg in sorted_hours if avg > 0][:3]
 
     # 3. Servizi e Corsi più popolari
     services_popularity = {"sauna": 0, "massage_chair": 0}
@@ -618,6 +629,8 @@ def get_gym_statistics(uow: GymUnitOfWork = Depends(get_uow)):
             "total": round(revenue_subscriptions + revenue_bar + revenue_services, 2)
         },
         "affluence": affluence_by_hour,
+        "affluence_totals": affluence_totals,
+        "peak_hours": peak_hours,
         "popularity": {
             "services": services_popularity,
             "courses": courses_popularity

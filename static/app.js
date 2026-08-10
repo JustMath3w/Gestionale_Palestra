@@ -730,7 +730,17 @@ async function loadAdminDashboard() {
         document.getElementById("statServicesRevenue").textContent = `${stats.financials.services.toFixed(2)} €`;
 
         // Inizializza o aggiorna Grafico Affluenza
-        initAffluenceChart(stats.affluence);
+        initAffluenceChart(stats.affluence, stats.affluence_totals);
+        
+        // Aggiorna fasce orarie di punta
+        const peakTextEl = document.getElementById("peakHoursText");
+        if (peakTextEl) {
+            if (stats.peak_hours && stats.peak_hours.length > 0) {
+                peakTextEl.textContent = `Fasce orarie di punta: ${stats.peak_hours.join(", ")}`;
+            } else {
+                peakTextEl.textContent = "Fasce orarie di punta: Dati insufficienti";
+            }
+        }
 
         // Inizializza o aggiorna Grafico Popolarità
         initPopularityChart(stats.popularity);
@@ -752,7 +762,7 @@ async function loadAdminDashboard() {
 }
 
 // Inizializza grafico affluenza
-function initAffluenceChart(affluenceData) {
+function initAffluenceChart(affluenceData, affluenceTotals) {
     const ctx = document.getElementById("affluenceChart").getContext("2d");
     const labels = Object.keys(affluenceData);
     const data = Object.values(affluenceData);
@@ -766,7 +776,7 @@ function initAffluenceChart(affluenceData) {
         data: {
             labels: labels,
             datasets: [{
-                label: "Ingressi Convalidati",
+                label: "Media Ingressi Convalidati",
                 data: data,
                 borderColor: "#7f5af0",
                 backgroundColor: "rgba(127, 90, 240, 0.1)",
@@ -781,7 +791,26 @@ function initAffluenceChart(affluenceData) {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { display: false }
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed.y !== null) {
+                                label += context.parsed.y;
+                            }
+                            if (affluenceTotals) {
+                                const hourKey = context.label;
+                                const total = affluenceTotals[hourKey] || 0;
+                                label += ` (Totale complessivo: ${total})`;
+                            }
+                            return label;
+                        }
+                    }
+                }
             },
             scales: {
                 y: {
