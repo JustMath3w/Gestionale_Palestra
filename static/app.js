@@ -740,6 +740,9 @@ async function loadAdminDashboard() {
 
         // 3. Tipologie Abbonamento (RF6)
         loadAdminSubTypesTable();
+
+        // 4. Storico Sottoscrizioni
+        loadSubscriptionHistory();
     } catch (e) {
         console.error("Errore caricamento statistiche admin", e);
     }
@@ -1087,6 +1090,73 @@ async function deleteSubType(subTypeId) {
     } catch (e) {
         showToast("Errore di connessione al server", "error");
     }
+}
+
+// --- STORICO SOTTOSCRIZIONI (ADMIN) ---
+let subscriptionHistoryData = [];
+
+async function loadSubscriptionHistory() {
+    try {
+        const response = await fetch('/api/admin/subscriptions-history');
+        if (response.ok) {
+            subscriptionHistoryData = await response.json();
+            const select = document.getElementById('historyMemberSelect');
+            if(!select) return;
+            select.innerHTML = '<option value="">-- Seleziona Membro --</option>';
+            subscriptionHistoryData.forEach(member => {
+                const option = document.createElement('option');
+                option.value = member.member_id;
+                option.textContent = `${member.first_name} ${member.last_name} (${member.email})`;
+                select.appendChild(option);
+            });
+            // Clear current table
+            renderSubscriptionHistory("");
+        }
+    } catch (error) {
+        console.error("Errore nel caricamento storico abbonamenti:", error);
+    }
+}
+
+window.renderSubscriptionHistory = function(memberId) {
+    const tbody = document.getElementById('subscriptionHistoryTableBody');
+    if (!tbody) return;
+    if (!memberId) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px;">Seleziona un membro per visualizzare lo storico.</td></tr>';
+        return;
+    }
+    const member = subscriptionHistoryData.find(m => m.member_id === memberId);
+    if (!member || !member.subscriptions || member.subscriptions.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px;">Nessun abbonamento trovato per questo membro.</td></tr>';
+        return;
+    }
+    
+    // Fallback in case window.subscriptionTypes is not populated yet
+    const subTypesMap = {};
+    if (window.subscriptionTypes) {
+        window.subscriptionTypes.forEach(st => {
+            subTypesMap[st.id] = st.name;
+        });
+    }
+
+    tbody.innerHTML = '';
+    // Sort subscriptions: most recent start_date first
+    const sortedSubs = [...member.subscriptions].sort((a, b) => b.start_date.localeCompare(a.start_date));
+    
+    sortedSubs.forEach(sub => {
+        const subName = subTypesMap[sub.subscription_type_id] || sub.subscription_type_id;
+        const statusBadge = sub.is_active 
+            ? '<span class="badge" style="background:var(--success-color);color:#fff;padding:4px 8px;border-radius:12px;font-size:12px;">Attivo</span>' 
+            : '<span class="badge" style="background:var(--text-muted);color:#fff;padding:4px 8px;border-radius:12px;font-size:12px;">Scaduto</span>';
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><strong>${subName}</strong></td>
+            <td>${sub.start_date}</td>
+            <td>${sub.end_date}</td>
+            <td>${statusBadge}</td>
+        `;
+        tbody.appendChild(tr);
+    });
 }
 
 

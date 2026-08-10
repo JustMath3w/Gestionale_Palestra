@@ -519,6 +519,30 @@ def scan_check_in(check_req: schemas.CheckInRequest, uow: GymUnitOfWork = Depend
 # API: STATISTICHE E AMMINISTRAZIONE (PANNELLO ADMIN)
 # =====================================================================
 
+@app.get("/api/admin/subscriptions-history", response_model=List[schemas.AdminSubscriptionHistoryMember], tags=["Abbonamenti (Admin)"])
+def get_subscriptions_history(uow: GymUnitOfWork = Depends(get_uow)):
+    members = uow.members.get_all()
+    history = []
+    for m in members:
+        subs = uow.subscriptions.get_by_member_id(m.id)
+        history.append(schemas.AdminSubscriptionHistoryMember(
+            member_id=m.id,
+            first_name=m.first_name,
+            last_name=m.last_name,
+            email=m.email,
+            subscriptions=[
+                schemas.MemberSubscriptionResponse(
+                    id=s.id,
+                    member_id=s.member_id,
+                    subscription_type_id=s.subscription_type_id,
+                    start_date=s.start_date,
+                    end_date=s.end_date,
+                    is_active=s.is_active
+                ) for s in subs
+            ]
+        ))
+    return history
+
 @app.get("/api/admin/logs", response_model=List[schemas.AccessLogResponse], tags=["Statistiche & Log (Admin)"])
 def get_access_logs(uow: GymUnitOfWork = Depends(get_uow)):
     # Ritorna gli ultimi log di accesso (ordinati dal più recente)

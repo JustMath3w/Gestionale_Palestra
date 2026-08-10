@@ -156,3 +156,12 @@ class CheckInResponse(BaseModel):
 
 class RicaricaRequest(BaseModel):
     amount: float
+
+
+# --- Admin Subscription History Schemas ---
+class AdminSubscriptionHistoryMember(BaseModel):
+    member_id: str
+    first_name: str
+    last_name: str
+    email: str
+    subscriptions: List[MemberSubscriptionResponse]

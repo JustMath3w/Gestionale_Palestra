@@ -443,6 +443,36 @@
                             </table>
                         </div>
                     </div>
+
+                    <!-- STORICO SOTTOSCRIZIONI -->
+                    <div class="section-title-wrapper margin-top-40">
+                        <h2>Storico Sottoscrizioni</h2>
+                        <p>Visualizza lo storico degli abbonamenti passati acquistati, raggruppati per membro.</p>
+                    </div>
+                    <div class="glass-card padding-0 overflow-hidden" style="margin-bottom: 40px; padding: 20px;">
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label for="historyMemberSelect"><strong>Seleziona un Membro</strong></label>
+                            <select class="form-control" id="historyMemberSelect" onchange="renderSubscriptionHistory(this.value)">
+                                <option value="">-- Seleziona Membro --</option>
+                            </select>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Nome Abbonamento</th>
+                                        <th>Data Inizio</th>
+                                        <th>Data Fine</th>
+                                        <th>Stato</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="subscriptionHistoryTableBody">
+                                    <tr><td colspan="4" style="text-align:center; padding: 20px;">Seleziona un membro per visualizzare lo storico.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                 </div>
             </section>
 
