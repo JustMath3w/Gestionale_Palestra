@@ -473,6 +473,36 @@
                         </div>
                     </div>
 
+                    <!-- GESTIONE CATALOGO PRODOTTI (RF18) -->
+                    <div class="section-title-wrapper margin-top-40">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <div>
+                                <h2>Catalogo Prodotti (RF18)</h2>
+                                <p>Gestisci i prodotti acquistabili allo Smart Bar (bevande, snack, acqua).</p>
+                            </div>
+                            <button class="btn btn-primary" id="openAddProductBtn" onclick="openAddProductModal()">
+                                <i class="fa-solid fa-plus"></i> Nuovo Prodotto
+                            </button>
+                        </div>
+                    </div>
+                    <div class="glass-card padding-0 overflow-hidden" style="margin-bottom: 40px;">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Nome Prodotto</th>
+                                        <th>Prezzo (€)</th>
+                                        <th>Quantità (Magazzino)</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminProductsTable">
+                                    <!-- Caricato dinamicamente via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                 </div>
             </section>
 
@@ -648,10 +678,43 @@
         </div>
     </div>
 
+    <!-- MODALE DI AGGIUNTA/MODIFICA PRODOTTO (RF18) -->
+    <div class="modal" id="productModal">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h2 id="productModalTitle">Nuovo Prodotto</h2>
+                <button class="modal-close" id="closeProductModalBtn" onclick="document.getElementById('productModal').classList.remove('open')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="productForm">
+                    <input type="hidden" id="productId">
+                    <div class="form-group">
+                        <label for="productName">Nome Prodotto</label>
+                        <input type="text" id="productName" required placeholder="es: Acqua Naturale 500ml">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="productPrice">Prezzo (€)</label>
+                            <input type="number" id="productPrice" required step="0.01" min="0" placeholder="1.50">
+                        </div>
+                        <div class="form-group">
+                            <label for="productStock">Quantità (Magazzino)</label>
+                            <input type="number" id="productStock" required min="0" placeholder="50">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="document.getElementById('productModal').classList.remove('open')">Annulla</button>
+                <button class="btn btn-success" id="confirmProductBtn">Salva Prodotto</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modale Notifiche/Alert personalizzato -->
     <div class="toast" id="toast">Notifica</div>
 
     <!-- Custom JS App -->
-    <script src="app.js?v=1.1"></script>
+    <script src="app.js?v=1.2"></script>
 </body>
 </html>

@@ -743,6 +743,9 @@ async function loadAdminDashboard() {
 
         // 4. Storico Sottoscrizioni
         loadSubscriptionHistory();
+
+        // 5. Catalogo Prodotti (RF18)
+        loadAdminProductsTable();
     } catch (e) {
         console.error("Errore caricamento statistiche admin", e);
     }
@@ -1157,6 +1160,114 @@ window.renderSubscriptionHistory = function(memberId) {
         `;
         tbody.appendChild(tr);
     });
+}
+
+
+// --- GESTIONE CATALOGO PRODOTTI (RF18) ---
+async function loadAdminProductsTable() {
+    try {
+        const response = await fetch("/api/products");
+        if (response.ok) {
+            const products = await response.json();
+            const tbody = document.getElementById("adminProductsTable");
+            if (!tbody) return;
+            tbody.innerHTML = "";
+            
+            if (products.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px;">Nessun prodotto nel catalogo.</td></tr>';
+                return;
+            }
+
+            products.forEach(p => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td><strong>${p.name}</strong></td>
+                    <td>${p.price.toFixed(2)} €</td>
+                    <td>${p.stock}</td>
+                    <td>
+                        <button class="btn btn-secondary btn-sm" onclick="editProduct('${p.id}', '${p.name.replace(/'/g, "\\'")}', ${p.price}, ${p.stock})" title="Modifica">
+                            <i class="fa-solid fa-pen"></i> Modifica
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}')" title="Rimuovi">
+                            <i class="fa-solid fa-trash"></i> Elimina
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+    } catch (e) {
+        console.error("Errore caricamento catalogo prodotti", e);
+    }
+}
+
+window.openAddProductModal = function() {
+    document.getElementById("productModalTitle").textContent = "Nuovo Prodotto";
+    document.getElementById("productForm").reset();
+    document.getElementById("productId").value = "";
+    document.getElementById("productModal").classList.add("open");
+}
+
+window.editProduct = function(id, name, price, stock) {
+    document.getElementById("productModalTitle").textContent = "Modifica Prodotto";
+    document.getElementById("productId").value = id;
+    document.getElementById("productName").value = name;
+    document.getElementById("productPrice").value = price;
+    document.getElementById("productStock").value = stock;
+    document.getElementById("productModal").classList.add("open");
+}
+
+if(document.getElementById("confirmProductBtn")) {
+    document.getElementById("confirmProductBtn").addEventListener("click", async () => {
+        const id = document.getElementById("productId").value;
+        const name = document.getElementById("productName").value.trim();
+        const price = parseFloat(document.getElementById("productPrice").value);
+        const stock = parseInt(document.getElementById("productStock").value, 10);
+
+        if (!name || isNaN(price) || isNaN(stock)) {
+            showToast("Compila tutti i campi correttamente", "error");
+            return;
+        }
+
+        const payload = { name, price, stock };
+        let url = "/api/products";
+        if (id) {
+            url += `?product_id=${encodeURIComponent(id)}`;
+        }
+
+        try {
+            const response = await fetch(url, {
+                method: "POST", // L'API per la creazione/aggiornamento accetta POST
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                showToast("Prodotto salvato con successo!", "success");
+                document.getElementById("productModal").classList.remove("open");
+                loadAdminProductsTable();
+            } else {
+                showToast("Errore nel salvataggio", "error");
+            }
+        } catch (e) {
+            showToast("Errore di connessione", "error");
+        }
+    });
+}
+
+window.deleteProduct = async function(id) {
+    if (!confirm("Sei sicuro di voler eliminare questo prodotto dal catalogo?")) return;
+    try {
+        const response = await fetch(`/api/products/${id}`, { method: "DELETE" });
+        if (response.ok) {
+            showToast("Prodotto rimosso con successo", "success");
+            loadAdminProductsTable();
+        } else {
+            showToast("Errore nell'eliminazione", "error");
+        }
+    } catch (e) {
+        showToast("Errore di connessione", "error");
+    }
 }
 
 
