@@ -1,6 +1,7 @@
 import os
 import hashlib
 from datetime import datetime, date, timedelta
+
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -96,12 +97,39 @@ def login_member(login_data: Dict[str, str], uow: GymUnitOfWork = Depends(get_uo
 
 
 @app.post("/api/auth/admin/login", tags=["Autenticazione"])
-def login_admin(login_data: Dict[str, str]):
+def login_admin(login_data: Dict[str, str], uow: GymUnitOfWork = Depends(get_uow)):
     username = login_data.get("username")
     password = login_data.get("password")
-    if username == "admin" and password == "admin":
-        return {"status": "success", "username": "admin", "role": "admin"}
+    
+    staff_member = uow.staff.get_by_username(username)
+    if staff_member and staff_member.password_hash == password:
+        return {"status": "success", "username": staff_member.username, "role": staff_member.role}
+        
     raise HTTPException(status_code=401, detail="Credenziali amministratore non valide.")
+
+# --- Gestione Staff (RF27) ---
+@app.get("/api/admin/staff", response_model=List[schemas.StaffResponse], tags=["Staff (Admin)"])
+def get_staff_list(uow: GymUnitOfWork = Depends(get_uow)):
+    return uow.staff.get_all()
+
+@app.post("/api/admin/staff", response_model=schemas.StaffResponse, tags=["Staff (Admin)"])
+def create_staff(staff_data: schemas.StaffCreate, uow: GymUnitOfWork = Depends(get_uow)):
+    if uow.staff.get_by_username(staff_data.username):
+        raise HTTPException(status_code=400, detail="Username già in uso.")
+        
+    from models import Staff
+    new_staff = Staff(
+        username=staff_data.username,
+        password_hash=staff_data.password,
+        role=staff_data.role
+    )
+    return uow.staff.save(new_staff)
+
+@app.delete("/api/admin/staff/{staff_id}", tags=["Staff (Admin)"])
+def delete_staff(staff_id: str, uow: GymUnitOfWork = Depends(get_uow)):
+    if uow.staff.delete(staff_id):
+        return {"status": "success"}
+    raise HTTPException(status_code=404, detail="Membro dello staff non trovato.")
 
 
 @app.get("/api/members/{member_id}", response_model=schemas.MemberResponse, tags=["Membri"])

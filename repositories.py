@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional
 from sqlalchemy.orm import Session
 import config
-from models import Base, Member, SubscriptionType, MemberSubscription, Course, Booking, Product, Purchase, AccessLog
+from models import Base, Member, SubscriptionType, MemberSubscription, Course, Booking, Product, Purchase, AccessLog, Staff
 
 # ==========================================
 # 1. INTERFACCE ASTRATTE (REPOSITORY PATTERN)
@@ -89,6 +89,18 @@ class IAccessLogRepository(ABC):
     def get_all(self) -> List[AccessLog]: pass
     @abstractmethod
     def save(self, log: AccessLog) -> AccessLog: pass
+
+class IStaffRepository(ABC):
+    @abstractmethod
+    def get_by_id(self, id: str) -> Optional[Staff]: pass
+    @abstractmethod
+    def get_by_username(self, username: str) -> Optional[Staff]: pass
+    @abstractmethod
+    def get_all(self) -> List[Staff]: pass
+    @abstractmethod
+    def save(self, staff: Staff) -> Staff: pass
+    @abstractmethod
+    def delete(self, id: str) -> bool: pass
 
 # ==========================================
 # 2. IMPLEMENTAZIONE JSON (PERSISTENZA SU FILE)
@@ -389,6 +401,49 @@ class JSONAccessLogRepository(JSONRepositoryBase, IAccessLogRepository):
         return log
 
 
+class JSONStaffRepository(JSONRepositoryBase, IStaffRepository):
+    def __init__(self):
+        super().__init__("staff.json")
+
+    def get_by_id(self, id: str) -> Optional[Staff]:
+        items = self._load_all()
+        for item in items:
+            if item["id"] == id:
+                return Staff.from_dict(item)
+        return None
+
+    def get_by_username(self, username: str) -> Optional[Staff]:
+        items = self._load_all()
+        for item in items:
+            if item["username"] == username:
+                return Staff.from_dict(item)
+        return None
+
+    def get_all(self) -> List[Staff]:
+        return [Staff.from_dict(item) for item in self._load_all()]
+
+    def save(self, staff: Staff) -> Staff:
+        items = self._load_all()
+        staff_dict = staff.to_dict()
+        updated = False
+        for i, item in enumerate(items):
+            if item["id"] == staff.id:
+                items[i] = staff_dict
+                updated = True
+                break
+        if not updated:
+            items.append(staff_dict)
+        self._save_all(items)
+        return staff
+
+    def delete(self, id: str) -> bool:
+        items = self._load_all()
+        initial_len = len(items)
+        items = [item for item in items if item["id"] != id]
+        self._save_all(items)
+        return len(items) < initial_len
+
+
 # ==========================================
 # 3. IMPLEMENTAZIONE SQLITE (CON SQLALCHEMY)
 # ==========================================
@@ -621,6 +676,40 @@ class SQLiteAccessLogRepository(IAccessLogRepository):
         return log
 
 
+class SQLiteStaffRepository(IStaffRepository):
+    def __init__(self, db: Session):
+        self.db = db
+
+    def get_by_id(self, id: str) -> Optional[Staff]:
+        return self.db.query(Staff).filter(Staff.id == id).first()
+
+    def get_by_username(self, username: str) -> Optional[Staff]:
+        return self.db.query(Staff).filter(Staff.username == username).first()
+
+    def get_all(self) -> List[Staff]:
+        return self.db.query(Staff).all()
+
+    def save(self, staff: Staff) -> Staff:
+        existing = self.get_by_id(staff.id)
+        if existing:
+            merged = self.db.merge(staff)
+            self.db.commit()
+            return merged
+        else:
+            self.db.add(staff)
+            self.db.commit()
+            self.db.refresh(staff)
+            return staff
+            
+    def delete(self, id: str) -> bool:
+        staff = self.get_by_id(id)
+        if staff:
+            self.db.delete(staff)
+            self.db.commit()
+            return True
+        return False
+
+
 # ==========================================
 # 4. GESTORE DEI REPOSITORY (UNIT OF WORK / MANAGER)
 # ==========================================
@@ -644,6 +733,9 @@ class GymUnitOfWork:
             self.products = SQLiteProductRepository(db_session)
             self.purchases = SQLitePurchaseRepository(db_session)
             self.access_logs = SQLiteAccessLogRepository(db_session)
+            self.staff = SQLiteStaffRepository(db_session)
+            
+            self._seed_initial_data()
         else:
             self.members = JSONMemberRepository()
             self.subscription_types = JSONSubscriptionTypeRepository()
@@ -653,11 +745,22 @@ class GymUnitOfWork:
             self.products = JSONProductRepository()
             self.purchases = JSONPurchaseRepository()
             self.access_logs = JSONAccessLogRepository()
+            self.staff = JSONStaffRepository()
             
             # Popola dati iniziali se vuoti per simulazione
             self._seed_initial_data()
 
     def _seed_initial_data(self):
+        # Staff di default
+        if not self.staff.get_all():
+            from models import Staff
+            self.staff.save(Staff.from_dict({
+                "username": "admin",
+                "email": "admin@palestra.it",
+                "password_hash": "admin",
+                "role": "admin"
+            }))
+            
         # Tipi di Abbonamento di default se la tabella è vuota
         if not self.subscription_types.get_all():
             self.subscription_types.save(SubscriptionType.from_dict({

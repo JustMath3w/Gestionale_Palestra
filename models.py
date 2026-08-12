@@ -287,3 +287,33 @@ class AccessLog(Base):
             is_allowed=data.get("is_allowed"),
             reason=data.get("reason")
         )
+
+class Staff(Base):
+    __tablename__ = "staff"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    username = Column(String, unique=True, nullable=False)
+    email = Column(String, unique=True, nullable=True)
+    password_hash = Column(String, nullable=False)
+    role = Column(String, default="admin")
+
+    def to_dict(self):
+        if not self.id:
+            self.id = str(uuid.uuid4())
+        return {
+            "id": self.id,
+            "username": self.username,
+            "email": self.email,
+            "password_hash": self.password_hash,
+            "role": self.role
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(
+            id=data.get("id"),
+            username=data.get("username"),
+            email=data.get("email"),
+            password_hash=data.get("password_hash"),
+            role=data.get("role", "admin")
+        )

@@ -411,6 +411,32 @@
                         </div>
                     </div>
 
+                    <!-- GESTIONE STAFF (RF27) -->
+                    <div class="section-title-wrapper margin-top-40" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h2>Gestione Staff (RF27)</h2>
+                            <p>Visualizza l'elenco dello staff abilitato all'accesso al pannello di amministrazione.</p>
+                        </div>
+                        <button class="btn btn-primary" onclick="openStaffModal()">+ Aggiungi Staff</button>
+                    </div>
+                    <div class="glass-card padding-0 overflow-hidden" style="margin-bottom: 40px;">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Username</th>
+                                        <th>Email</th>
+                                        <th>Ruolo</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminStaffTable">
+                                    <!-- Caricato dinamicamente via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                     <!-- GESTIONE UTENTI -->
                     <div class="section-title-wrapper">
                         <h2>Anagrafica Utenti Palestra</h2>
@@ -735,10 +761,45 @@
         </div>
     </div>
 
+    <!-- MODALE AGGIUNGI STAFF -->
+    <div class="modal" id="modalStaff">
+        <div class="modal-content glass-card" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3>Aggiungi Membro dello Staff</h3>
+                <button class="modal-close" onclick="closeStaffModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="formAddStaff" onsubmit="submitStaff(event)">
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" id="staffUsername" class="form-control" required placeholder="Es. trainer1">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="staffEmail" class="form-control" required placeholder="Es. admin@palestra.it">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="staffPassword" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Ruolo</label>
+                        <select id="staffRole" class="form-control" required>
+                            <option value="admin">Amministratore</option>
+                            <option value="trainer">Trainer</option>
+                            <option value="receptionist">Receptionist</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 15px;">Salva Staff</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Modale Notifiche/Alert personalizzato -->
     <div class="toast" id="toast">Notifica</div>
 
     <!-- Custom JS App -->
-    <script src="app.js?v=1.5"></script>
+    <script src="app.js?v=1.6"></script>
 </body>
 </html>

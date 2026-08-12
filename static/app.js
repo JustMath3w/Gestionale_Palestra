@@ -756,6 +756,9 @@ async function loadAdminDashboard() {
 
         // 5. Catalogo Prodotti (RF18)
         loadAdminProductsTable();
+
+        // 6. Tabella Staff (RF27)
+        loadAdminStaffTable();
     } catch (e) {
         console.error("Errore caricamento statistiche admin", e);
     }
@@ -1450,3 +1453,89 @@ async function loadAccessLogsList() {
 
 // --- AVVIO SESSIONE UTENTE AL CARICAMENTO ---
 initSession();
+
+
+// --- GESTIONE STAFF (RF27) ---
+async function loadAdminStaffTable() {
+    const tbody = document.getElementById("adminStaffTable");
+    if (!tbody) return;
+
+    try {
+        const response = await fetch("/api/admin/staff");
+        if (response.ok) {
+            const staffList = await response.json();
+            tbody.innerHTML = "";
+            if (staffList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Nessun membro dello staff trovato</td></tr>';
+                return;
+            }
+            
+            staffList.forEach(staff => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td><strong>${staff.username}</strong></td>
+                    <td>${staff.email || '<span class="text-muted">N/A</span>'}</td>
+                    <td><span class="badge badge-${staff.role === 'admin' ? 'primary' : 'secondary'}">${staff.role}</span></td>
+                    <td>
+                        <button class="btn btn-danger" onclick="deleteStaff('${staff.id}')" style="padding: 4px 8px; font-size: 0.8rem;">Rimuovi</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+    } catch (e) {
+        console.error("Errore nel caricamento staff", e);
+    }
+}
+
+function openStaffModal() {
+    document.getElementById("formAddStaff").reset();
+    document.getElementById("modalStaff").classList.add("open");
+}
+
+function closeStaffModal() {
+    document.getElementById("modalStaff").classList.remove("open");
+}
+
+async function submitStaff(e) {
+    e.preventDefault();
+    const username = document.getElementById("staffUsername").value;
+    const email = document.getElementById("staffEmail").value;
+    const password = document.getElementById("staffPassword").value;
+    const role = document.getElementById("staffRole").value;
+
+    try {
+        const response = await fetch("/api/admin/staff", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, email, password, role })
+        });
+        
+        if (response.ok) {
+            showToast("Membro dello staff aggiunto con successo!", "success");
+            closeStaffModal();
+            loadAdminStaffTable();
+        } else {
+            const err = await response.json();
+            showToast(err.detail || "Errore nell'aggiunta dello staff", "error");
+        }
+    } catch (error) {
+        showToast("Errore di rete", "error");
+    }
+}
+
+async function deleteStaff(id) {
+    if (!confirm("Sei sicuro di voler rimuovere questo membro dello staff?")) return;
+    
+    try {
+        const response = await fetch(`/api/admin/staff/${id}`, { method: "DELETE" });
+        if (response.ok) {
+            showToast("Staff rimosso con successo", "success");
+            loadAdminStaffTable();
+        } else {
+            showToast("Errore nella rimozione dello staff", "error");
+        }
+    } catch (e) {
+        showToast("Errore di rete", "error");
+    }
+}

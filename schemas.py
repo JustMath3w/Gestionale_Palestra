@@ -165,3 +165,20 @@ class AdminSubscriptionHistoryMember(BaseModel):
     last_name: str
     email: str
     subscriptions: List[MemberSubscriptionResponse]
+
+
+# --- Staff Schemas ---
+class StaffBase(BaseModel):
+    username: str
+    email: Optional[str] = None
+    role: str
+
+class StaffCreate(StaffBase):
+    password: str
+
+class StaffResponse(StaffBase):
+    id: str
+
+    class Config:
+        from_attributes = True
+
