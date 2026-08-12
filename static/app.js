@@ -884,6 +884,44 @@ function initPopularityChart(popularityData) {
             }
         }
     });
+    
+    // Popola tabella Classifica (RF26)
+    renderPopularityRanking(popularityData);
+}
+
+// Renderizza la classifica (RF26)
+function renderPopularityRanking(popularityData) {
+    const tbody = document.getElementById("adminPopularityTable");
+    if (!tbody) return;
+
+    const items = [];
+    
+    // Aggiungi servizi
+    items.push({ name: "Sauna Relax", type: "Servizio Benessere", count: popularityData.services.sauna || 0 });
+    items.push({ name: "Poltrona Massaggio", type: "Servizio Benessere", count: popularityData.services.massage_chair || 0 });
+    
+    // Aggiungi corsi
+    for (const [courseName, count] of Object.entries(popularityData.courses)) {
+        items.push({ name: courseName, type: "Corso di Gruppo", count: count });
+    }
+
+    // Ordina in modo decrescente
+    items.sort((a, b) => b.count - a.count);
+
+    tbody.innerHTML = "";
+    
+    let position = 1;
+    items.forEach((item) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td><strong>#${position}</strong></td>
+            <td>${item.name}</td>
+            <td><span class="badge badge-secondary" style="font-size: 0.75rem;">${item.type}</span></td>
+            <td><strong>${item.count}</strong></td>
+        `;
+        tbody.appendChild(tr);
+        position++;
+    });
 }
 
 // Carica anagrafica utenti per l'admin
