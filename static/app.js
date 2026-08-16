@@ -1,3 +1,26 @@
+
+function renderAdminScheduleCell(weeklyScheduleObj) {
+    if (!weeklyScheduleObj || Object.keys(weeklyScheduleObj).length === 0) {
+        return `<span class="badge badge-secondary" style="font-size: 0.75rem;">Nessun orario</span>`;
+    }
+    
+    const dayEntries = Object.entries(weeklyScheduleObj);
+    const dayCount = dayEntries.length;
+    
+    let optionsHtml = dayEntries.map(([dCode, slots]) => {
+        const dName = DAY_NAMES_IT_MAP[dCode] || dCode;
+        const slotsStr = slots.join(", ");
+        return `<option value="" disabled>📅 ${dName}: ${slotsStr}</option>`;
+    }).join("");
+
+    return `
+        <select onclick="event.stopPropagation();" style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.18); color: var(--info-color); border-radius: 8px; padding: 6px 12px; font-size: 0.82rem; font-weight: 600; cursor: pointer; max-width: 220px; outline: none;">
+            <option value="" disabled selected>🕒 Orari (${dayCount} giorn${dayCount === 1 ? 'o' : 'i'}) ▾</option>
+            ${optionsHtml}
+        </select>
+    `;
+}
+
 // --- STATO DELL'APPLICAZIONE ---
 let currentMember = null;
 let isAdminLoggedIn = false; // Stato sessione amministratore
@@ -344,7 +367,10 @@ async function loadClientDashboard() {
 
     // 6. Carica Prodotti Smart Bar
     loadSmartBarProducts();
+    initClientDatePicker();
     loadClientCoursesCards();
+    loadClientWellnessCards();
+    loadWellnessDropdown();
 }
 
 // Disdici Abbonamento Attivo
@@ -755,6 +781,7 @@ async function loadAdminDashboard() {
         // 4. Storico Sottoscrizioni
         loadSubscriptionHistory();
         loadAdminCoursesTable();
+        loadAdminWellnessTable();
 
         // 5. Catalogo Prodotti (RF18)
         loadAdminProductsTable();
@@ -1560,56 +1587,155 @@ const STANDARD_TIME_SLOTS = [
 ];
 
 const ALL_DAYS_CODES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAY_SHORT_IT = {
+    "Mon": "Lun", "Tue": "Mar", "Wed": "Mer", "Thu": "Gio",
+    "Fri": "Ven", "Sat": "Sab", "Sun": "Dom"
+};
+
 const DAY_NAMES_IT_MAP = {
     "Mon": "Lunedì", "Tue": "Martedì", "Wed": "Mercoledì", "Thu": "Giovedì",
     "Fri": "Venerdì", "Sat": "Sabato", "Sun": "Domenica"
 };
 
-function renderWeeklyScheduleConfig(weeklyScheduleData = {}) {
-    const container = document.getElementById("courseWeeklyConfigContainer");
+
+function renderWeeklyScheduleConfig(weeklyScheduleData = {}, containerId = "weeklyScheduleConfigContainer", prefix = "crs") {
+    const container = document.getElementById(containerId);
     if (!container) return;
     container.innerHTML = "";
 
-    ALL_DAYS_CODES.forEach(dCode => {
+    const defaultSlots = [
+        "08:00 - 09:00", "09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00",
+        "14:00 - 15:00", "15:00 - 16:00", "16:00 - 17:00", "17:00 - 18:00",
+        "18:00 - 19:00", "19:30 - 20:30"
+    ];
+
+    // Day Tabs Bar (7 columns grid, 100% width, no overflow)
+    const tabsBar = document.createElement("div");
+    tabsBar.style.cssText = "display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; padding: 2px 0 6px 0; margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1);";
+
+    ALL_DAYS_CODES.forEach((dCode, idx) => {
+        const dNameShort = DAY_SHORT_IT[dCode] || dCode;
+        const activeSlots = weeklyScheduleData[dCode] || [];
+        const isDayChecked = activeSlots.length > 0;
+
+        const tabBtn = document.createElement("button");
+        tabBtn.type = "button";
+        tabBtn.className = `btn btn-sm ${idx === 0 ? 'btn-primary' : 'btn-secondary'}`;
+        tabBtn.id = `${prefix}TabBtn_${dCode}`;
+        tabBtn.style.cssText = "padding: 5px 1px; font-size: 0.75rem; border-radius: 6px; text-align: center; white-space: nowrap; width: 100%; display: flex; align-items: center; justify-content: center; gap: 2px;";
+        tabBtn.innerHTML = `
+            <span>${dNameShort}</span>
+            <span id="${prefix}Badge_${dCode}" class="badge ${isDayChecked ? 'badge-success' : 'badge-secondary'}" style="font-size: 0.62rem; padding: 1px 4px; border-radius: 8px;">
+                ${isDayChecked ? activeSlots.length : '0'}
+            </span>
+        `;
+
+        tabBtn.onclick = () => switchScheduleDayTab(dCode, prefix);
+        tabsBar.appendChild(tabBtn);
+    });
+
+    container.appendChild(tabsBar);
+
+    // Day Panels
+    ALL_DAYS_CODES.forEach((dCode, idx) => {
         const dayName = DAY_NAMES_IT_MAP[dCode];
         const activeSlots = weeklyScheduleData[dCode] || [];
         const isDayChecked = activeSlots.length > 0;
 
-        const card = document.createElement("div");
-        card.className = "day-slot-card glass-card";
-        card.style.cssText = "padding: 10px 14px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;";
+        const panel = document.createElement("div");
+        panel.id = `${prefix}Panel_${dCode}`;
+        panel.className = `${prefix}-day-panel`;
+        panel.style.cssText = `background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 10px 12px; display: ${idx === 0 ? "block" : "none"};`;
 
-        let slotsCheckboxesHtml = STANDARD_TIME_SLOTS.map(slot => {
+        let slotsCheckboxesHtml = defaultSlots.map(slot => {
             const isChecked = activeSlots.includes(slot);
             return `
-                <label style="display: flex; align-items: center; gap: 4px; font-size: 0.8rem; font-weight: normal; cursor: pointer; color: #e2e8f0;">
-                    <input type="checkbox" class="slot-cb-${dCode}" value="${slot}" ${isChecked ? 'checked' : ''}> ${slot}
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; cursor: pointer; color: #e2e8f0; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 5px 8px; border-radius: 6px;">
+                    <input type="checkbox" class="${prefix}-slot-cb-${dCode}" value="${slot}" ${isChecked ? 'checked' : ''} onchange="updateTabBadge('${dCode}', '${prefix}')"> ${slot}
                 </label>
             `;
         }).join("");
 
-        card.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; color: var(--primary-color); font-size: 0.9rem;">
-                    <input type="checkbox" id="toggleDay_${dCode}" ${isDayChecked ? 'checked' : ''} onchange="toggleDaySlotsVisibility('${dCode}')"> ${dayName}
+        panel.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                <label style="display: flex; align-items: center; gap: 8px; font-weight: 700; cursor: pointer; color: var(--info-color); font-size: 0.88rem;">
+                    <input type="checkbox" id="${prefix}ToggleDay_${dCode}" ${isDayChecked ? 'checked' : ''} onchange="toggleDayPanelActive('${dCode}', '${prefix}')"> ${dayName}
                 </label>
-                <span style="font-size: 0.75rem; color: var(--text-muted);" id="slotCountLabel_${dCode}">${activeSlots.length} fasce orarie</span>
+                <div style="display: flex; gap: 6px;">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="selectPresetSlots('${dCode}', '${prefix}', 'all')" style="font-size: 0.72rem; padding: 2px 8px;">
+                        Tutti
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="selectPresetSlots('${dCode}', '${prefix}', 'none')" style="font-size: 0.72rem; padding: 2px 8px;">
+                        Nessuno
+                    </button>
+                </div>
             </div>
-            <div id="slotsBox_${dCode}" style="display: ${isDayChecked ? 'grid' : 'none'}; grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)); gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.05);">
+            <div id="${prefix}SlotsGrid_${dCode}" style="display: ${isDayChecked ? 'grid' : 'none'}; grid-template-columns: repeat(2, 1fr); gap: 6px; max-height: 110px; overflow-y: auto; padding-right: 4px;">
                 ${slotsCheckboxesHtml}
             </div>
         `;
 
-        container.appendChild(card);
+        container.appendChild(panel);
     });
 }
 
-function toggleDaySlotsVisibility(dCode) {
-    const isChecked = document.getElementById(`toggleDay_${dCode}`).checked;
-    const box = document.getElementById(`slotsBox_${dCode}`);
-    if (box) box.style.display = isChecked ? "grid" : "none";
+function renderWellnessScheduleConfig(weeklyScheduleData = {}) {
+    renderWeeklyScheduleConfig(weeklyScheduleData, "wellnessWeeklyConfigContainer", "wln");
 }
-window.toggleDaySlotsVisibility = toggleDaySlotsVisibility;
+
+function switchScheduleDayTab(selectedCode, prefix) {
+    ALL_DAYS_CODES.forEach(dCode => {
+        const btn = document.getElementById(`${prefix}TabBtn_${dCode}`);
+        const panel = document.getElementById(`${prefix}Panel_${dCode}`);
+        if (btn) {
+            if (dCode === selectedCode) {
+                btn.classList.remove("btn-secondary");
+                btn.classList.add("btn-primary");
+            } else {
+                btn.classList.remove("btn-primary");
+                btn.classList.add("btn-secondary");
+            }
+        }
+        if (panel) {
+            panel.style.display = dCode === selectedCode ? "block" : "none";
+        }
+    });
+}
+
+function toggleDayPanelActive(dCode, prefix) {
+    const isChecked = document.getElementById(`${prefix}ToggleDay_${dCode}`).checked;
+    const grid = document.getElementById(`${prefix}SlotsGrid_${dCode}`);
+    if (grid) grid.style.display = isChecked ? "grid" : "none";
+    updateTabBadge(dCode, prefix);
+}
+
+function updateTabBadge(dCode, prefix) {
+    const isDayChecked = document.getElementById(`${prefix}ToggleDay_${dCode}`).checked;
+    const checkedCount = document.querySelectorAll(`.${prefix}-slot-cb-${dCode}:checked`).length;
+    const badge = document.getElementById(`${prefix}Badge_${dCode}`);
+    if (badge) {
+        badge.textContent = isDayChecked ? checkedCount : '0';
+        badge.className = `badge ${isDayChecked && checkedCount > 0 ? 'badge-success' : 'badge-secondary'}`;
+    }
+}
+
+function selectPresetSlots(dCode, prefix, type) {
+    const toggle = document.getElementById(`${prefix}ToggleDay_${dCode}`);
+    if (type === 'none') {
+        if (toggle) toggle.checked = false;
+        document.querySelectorAll(`.${prefix}-slot-cb-${dCode}`).forEach(cb => cb.checked = false);
+    } else if (type === 'all') {
+        if (toggle) toggle.checked = true;
+        document.querySelectorAll(`.${prefix}-slot-cb-${dCode}`).forEach(cb => cb.checked = true);
+    }
+    toggleDayPanelActive(dCode, prefix);
+}
+
+window.switchScheduleDayTab = switchScheduleDayTab;
+window.toggleDayPanelActive = toggleDayPanelActive;
+window.updateTabBadge = updateTabBadge;
+window.selectPresetSlots = selectPresetSlots;
+
 
 const courseModal = document.getElementById("courseModal");
 const openAddCourseBtn = document.getElementById("openAddCourseBtn");
@@ -1650,10 +1776,10 @@ if (confirmCourseBtn) {
 
         const weekly_schedule = {};
         ALL_DAYS_CODES.forEach(dCode => {
-            const toggle = document.getElementById(`toggleDay_${dCode}`);
+            const toggle = document.getElementById(`crsToggleDay_${dCode}`);
             if (toggle && toggle.checked) {
                 const checkedSlots = [];
-                document.querySelectorAll(`.slot-cb-${dCode}:checked`).forEach(cb => {
+                document.querySelectorAll(`.crs-slot-cb-${dCode}:checked`).forEach(cb => {
                     checkedSlots.push(cb.value);
                 });
                 if (checkedSlots.length > 0) {
@@ -1693,7 +1819,10 @@ if (confirmCourseBtn) {
                 courseModal.classList.remove("open");
                 loadAdminDashboard();
                 loadCoursesDropdown();
-                loadClientCoursesCards();
+                initClientDatePicker();
+    loadClientCoursesCards();
+    loadClientWellnessCards();
+    loadWellnessDropdown();
             } else {
                 const err = await response.json();
                 showToast(err.detail || "Errore durante il salvataggio del corso", "error");
@@ -1720,7 +1849,7 @@ async function loadAdminCoursesTable() {
             tr.innerHTML = `
                 <td><strong>${c.name}</strong></td>
                 <td>${c.trainer}</td>
-                <td><i class="fa-solid fa-clock" style="color: var(--info-color);"></i> ${c.schedule}</td>
+                <td>${renderAdminScheduleCell(c.weekly_schedule)}</td>
                 <td><span class="badge badge-info">${c.max_capacity} posti</span></td>
                 <td>${subsBadges}</td>
                 <td>
@@ -1766,7 +1895,10 @@ async function deleteCourse(courseId) {
             showToast("Corso eliminato con successo!", "success");
             loadAdminDashboard();
             loadCoursesDropdown();
-            loadClientCoursesCards();
+            initClientDatePicker();
+    loadClientCoursesCards();
+    loadClientWellnessCards();
+    loadWellnessDropdown();
         } else {
             const err = await response.json();
             showToast(err.detail || "Errore eliminazione corso", "error");
@@ -1805,18 +1937,32 @@ const bookingCourseHint = document.getElementById("bookingCourseHint");
 
 function updateTimeSlotsForSelectedDateAndCourse() {
     const serviceVal = bookingServiceSelect ? bookingServiceSelect.value : "";
-    if (!serviceVal || serviceVal.indexOf("course:") !== 0) {
+    if (!serviceVal) {
         if (bookingCourseHint) bookingCourseHint.style.display = "none";
         return;
     }
 
-    const courseId = serviceVal.split(":")[1];
-    const course = cachedCoursesList.find(c => c.id === courseId);
-    if (!course) return;
+    let serviceName = "";
+    let ws = {};
 
-    const ws = course.weekly_schedule || {};
-    
-    // 1. Renderizza l'avviso completo e formattato del palinsesto corso
+    if (serviceVal.startsWith("course:")) {
+        const courseId = serviceVal.split(":")[1];
+        const course = cachedCoursesList.find(c => c.id === courseId);
+        if (!course) return;
+        serviceName = course.name;
+        ws = course.weekly_schedule || {};
+    } else if (serviceVal.startsWith("wellness:")) {
+        const wellnessId = serviceVal.split(":")[1];
+        const wellness = cachedWellnessList.find(w => w.id === wellnessId);
+        if (!wellness) return;
+        serviceName = wellness.name;
+        ws = wellness.weekly_schedule || {};
+    } else {
+        if (bookingCourseHint) bookingCourseHint.style.display = "none";
+        return;
+    }
+
+    // 1. Renderizza l'avviso completo e formattato del palinsesto
     if (bookingCourseHint) {
         bookingCourseHint.style.display = "block";
         let scheduleItems = "";
@@ -1827,7 +1973,7 @@ function updateTimeSlotsForSelectedDateAndCourse() {
         });
         bookingCourseHint.innerHTML = `
             <div style="font-weight: 700; margin-bottom: 6px; color: #fff; font-size: 0.95rem;">
-                <i class="fa-solid fa-calendar-days" style="color: var(--primary-color); margin-right: 6px;"></i> Programmazione Orari Corso:
+                <i class="fa-solid fa-calendar-days" style="color: var(--primary-color); margin-right: 6px;"></i> Programmazione Orari: <strong>${serviceName}</strong>
             </div>
             <ul style="margin: 0; padding-left: 20px; line-height: 1.6; font-size: 0.88rem;">
                 ${scheduleItems || '<li>Nessun orario definito</li>'}
@@ -1851,9 +1997,9 @@ function updateTimeSlotsForSelectedDateAndCourse() {
     if (allowedSlots.length === 0) {
         const opt = document.createElement("option");
         opt.value = "";
-        opt.textContent = "Nessun corso in questo giorno";
+        opt.textContent = "Nessun orario in questo giorno";
         bookingTimeSlotSelect.appendChild(opt);
-        showToast(`Attenzione: Il corso '${course.name}' non si svolge di ${DAY_NAMES_IT_MAP[pickedDayCode] || pickedDayCode}.`, "warning");
+        showToast(`Attenzione: '${serviceName}' non è in programma di ${DAY_NAMES_IT_MAP[pickedDayCode] || pickedDayCode}.`, "warning");
     } else {
         allowedSlots.forEach(slot => {
             const opt = document.createElement("option");
@@ -1873,20 +2019,42 @@ if (bookingDateInput) {
     bookingDateInput.addEventListener("change", () => updateTimeSlotsForSelectedDateAndCourse());
 }
 
+function getValidClientSelectedDate() {
+    const filterDateInput = document.getElementById("courseFilterDate");
+    const todayStr = new Date().toISOString().split("T")[0];
+    if (!filterDateInput) return todayStr;
+
+    if (!filterDateInput.value || !filterDateInput.value.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        filterDateInput.value = todayStr;
+        return todayStr;
+    }
+    return filterDateInput.value;
+}
+
+function initClientDatePicker() {
+    const filterDateInput = document.getElementById("courseFilterDate");
+    const todayStr = new Date().toISOString().split("T")[0];
+    if (filterDateInput) {
+        if (!filterDateInput.value) filterDateInput.value = todayStr;
+        filterDateInput.min = todayStr;
+        filterDateInput.onchange = () => {
+            const dateVal = getValidClientSelectedDate();
+            const bookingDateInput = document.getElementById("bookingDate");
+            if (bookingDateInput) {
+                bookingDateInput.value = dateVal;
+                bookingDateInput.dispatchEvent(new Event("change"));
+            }
+            loadClientCoursesCards();
+            loadClientWellnessCards();
+        };
+    }
+}
+
 async function loadClientCoursesCards() {
     const grid = document.getElementById("clientCoursesGrid");
     if (!grid) return;
 
-    const filterDateInput = document.getElementById("courseFilterDate");
-    const todayStr = new Date().toISOString().split("T")[0];
-    
-    if (filterDateInput && !filterDateInput.value) {
-        filterDateInput.value = todayStr;
-        filterDateInput.min = todayStr;
-        filterDateInput.onchange = () => loadClientCoursesCards();
-    }
-
-    const targetDate = filterDateInput ? filterDateInput.value : todayStr;
+    const targetDate = getValidClientSelectedDate();
 
     try {
         const response = await fetch(`/api/courses?date=${targetDate}`);
@@ -1991,3 +2159,345 @@ function quickBookCourse(courseServiceVal, dateVal) {
 }
 
 window.quickBookCourse = quickBookCourse;
+
+
+// --- GESTIONE SERVIZI BENESSERE ADMIN (RF28) ---
+let cachedWellnessList = [];
+
+
+
+const wellnessModal = document.getElementById("wellnessModal");
+const openAddWellnessBtn = document.getElementById("openAddWellnessBtn");
+const closeWellnessModalBtn = document.getElementById("closeWellnessModalBtn");
+const cancelWellnessBtn = document.getElementById("cancelWellnessBtn");
+const confirmWellnessBtn = document.getElementById("confirmWellnessBtn");
+
+if (openAddWellnessBtn) {
+    openAddWellnessBtn.addEventListener("click", () => {
+        document.getElementById("wellnessModalTitle").textContent = "Configura Servizio Benessere";
+        document.getElementById("wellnessEditId").value = "";
+        document.getElementById("wellnessName").value = "";
+        document.getElementById("wellnessPrice").value = "10.00";
+        document.getElementById("wellnessCapacity").value = "4";
+
+        document.getElementById("wlnSubBasic").checked = false;
+        document.getElementById("wlnSubPremium").checked = false;
+        document.getElementById("wlnSubVip").checked = true;
+
+        const defaultSlots = [
+            "08:00 - 09:00", "09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00",
+            "14:00 - 15:00", "15:00 - 16:00", "16:00 - 17:00", "17:00 - 18:00",
+            "18:00 - 19:00", "19:30 - 20:30"
+        ];
+        const stdSchedule = {};
+        ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].forEach(d => stdSchedule[d] = defaultSlots);
+
+        renderWellnessScheduleConfig(stdSchedule);
+
+        if (wellnessModal) wellnessModal.classList.add("open");
+    });
+}
+
+if (closeWellnessModalBtn) closeWellnessModalBtn.addEventListener("click", () => wellnessModal.classList.remove("open"));
+if (cancelWellnessBtn) cancelWellnessBtn.addEventListener("click", () => wellnessModal.classList.remove("open"));
+
+if (confirmWellnessBtn) {
+    confirmWellnessBtn.addEventListener("click", async () => {
+        const serviceId = document.getElementById("wellnessEditId").value;
+        const name = document.getElementById("wellnessName").value.trim();
+        const price = parseFloat(document.getElementById("wellnessPrice").value);
+        const max_capacity = parseInt(document.getElementById("wellnessCapacity").value);
+
+        const weekly_schedule = {};
+        ALL_DAYS_CODES.forEach(dCode => {
+            const toggle = document.getElementById(`wlnToggleDay_${dCode}`);
+            if (toggle && toggle.checked) {
+                const checkedSlots = [];
+                document.querySelectorAll(`.wln-slot-cb-${dCode}:checked`).forEach(cb => {
+                    checkedSlots.push(cb.value);
+                });
+                if (checkedSlots.length > 0) {
+                    weekly_schedule[dCode] = checkedSlots;
+                }
+            }
+        });
+
+        if (!name || isNaN(price) || price < 0 || Object.keys(weekly_schedule).length === 0 || isNaN(max_capacity) || max_capacity <= 0) {
+            showToast("Compila nome, prezzo, capienza e seleziona almeno un giorno con orari.", "error");
+            return;
+        }
+
+        const free_for_subscriptions = [];
+        if (document.getElementById("wlnSubBasic").checked) free_for_subscriptions.push("basic");
+        if (document.getElementById("wlnSubPremium").checked) free_for_subscriptions.push("premium");
+        if (document.getElementById("wlnSubVip").checked) free_for_subscriptions.push("vip");
+
+        const payload = {
+            name,
+            price,
+            weekly_schedule,
+            max_capacity,
+            free_for_subscriptions
+        };
+
+        try {
+            const url = serviceId ? `/api/wellness-services?service_id=${serviceId}` : "/api/wellness-services";
+            const response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                showToast("Servizio benessere salvato con successo!", "success");
+                wellnessModal.classList.remove("open");
+                loadAdminDashboard();
+                loadWellnessDropdown();
+                loadClientWellnessCards();
+            } else {
+                const err = await response.json();
+                showToast(err.detail || "Errore durante il salvataggio del servizio", "error");
+            }
+        } catch (e) {
+            showToast("Errore di connessione al server", "error");
+        }
+    });
+}
+
+async function loadAdminWellnessTable() {
+    try {
+        const response = await fetch("/api/wellness-services");
+        const services = await response.json();
+        cachedWellnessList = services;
+        const tbody = document.getElementById("adminWellnessTable");
+        if (!tbody) return;
+        tbody.innerHTML = "";
+
+        services.forEach(s => {
+            const tr = document.createElement("tr");
+            const freeBadges = (s.free_for_subscriptions || []).map(sub => `<span class="badge badge-success" style="font-size: 0.7rem; margin-right: 2px; text-transform: uppercase;">${sub}</span>`).join("") || "Nessuno";
+            const jsonStr = encodeURIComponent(JSON.stringify(s));
+            tr.innerHTML = `
+                <td><strong>${s.name}</strong></td>
+                <td>${s.price.toFixed(2)} €</td>
+                <td><span class="badge badge-info">${s.max_capacity} posti</span></td>
+                <td>${freeBadges}</td>
+                <td>${renderAdminScheduleCell(s.weekly_schedule)}</td>
+                <td>
+                    <button class="btn btn-secondary btn-sm" onclick="editWellnessFromJSON('${jsonStr}')" title="Modifica">
+                        <i class="fa-solid fa-pen"></i> Modifica
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteWellnessService('${s.id}')" title="Elimina">
+                        <i class="fa-solid fa-trash"></i> Elimina
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (e) {
+        console.error("Errore caricamento servizi benessere admin", e);
+    }
+}
+
+function editWellnessFromJSON(encodedJson) {
+    const s = JSON.parse(decodeURIComponent(encodedJson));
+    document.getElementById("wellnessModalTitle").textContent = "Modifica Servizio Benessere";
+    document.getElementById("wellnessEditId").value = s.id;
+    document.getElementById("wellnessName").value = s.name;
+    document.getElementById("wellnessPrice").value = s.price;
+    document.getElementById("wellnessCapacity").value = s.max_capacity;
+
+    const freeSubs = s.free_for_subscriptions || [];
+    document.getElementById("wlnSubBasic").checked = freeSubs.includes("basic");
+    document.getElementById("wlnSubPremium").checked = freeSubs.includes("premium");
+    document.getElementById("wlnSubVip").checked = freeSubs.includes("vip");
+
+    renderWellnessScheduleConfig(s.weekly_schedule || {});
+
+    if (wellnessModal) wellnessModal.classList.add("open");
+}
+
+async function deleteWellnessService(serviceId) {
+    if (!confirm("Sei sicuro di voler eliminare questo servizio benessere?")) return;
+
+    try {
+        const response = await fetch(`/api/wellness-services/${serviceId}`, { method: "DELETE" });
+        if (response.ok) {
+            showToast("Servizio benessere eliminato con successo!", "success");
+            loadAdminDashboard();
+            loadWellnessDropdown();
+            loadClientWellnessCards();
+        } else {
+            const err = await response.json();
+            showToast(err.detail || "Errore eliminazione servizio", "error");
+        }
+    } catch (e) {
+        showToast("Errore di connessione al server", "error");
+    }
+}
+
+window.editWellnessFromJSON = editWellnessFromJSON;
+window.deleteWellnessService = deleteWellnessService;
+
+async function loadWellnessDropdown() {
+    try {
+        const response = await fetch("/api/wellness-services");
+        const services = await response.json();
+        cachedWellnessList = services;
+
+        const select = document.getElementById("bookingService");
+        if (!select) return;
+
+        let optgroup = select.querySelector("optgroup[label='Servizi Benessere']");
+        if (!optgroup) {
+            optgroup = document.createElement("optgroup");
+            optgroup.label = "Servizi Benessere";
+            select.insertBefore(optgroup, select.firstChild);
+        }
+        optgroup.innerHTML = "";
+
+        services.forEach(s => {
+            const opt = document.createElement("option");
+            opt.value = `wellness:${s.id}`;
+            const priceLabel = s.price > 0 ? `${s.price.toFixed(2)}€` : 'Gratis';
+            const freeLabel = (s.free_for_subscriptions || []).length > 0 ? ` - Gratis per ${s.free_for_subscriptions.join(', ').toUpperCase()}` : '';
+            opt.textContent = `${s.name} (${priceLabel}${freeLabel})`;
+            optgroup.appendChild(opt);
+        });
+    } catch (e) {}
+}
+
+async function loadClientWellnessCards() {
+    const grid = document.getElementById("clientWellnessGrid");
+    if (!grid) return;
+
+    const targetDate = getValidClientSelectedDate();
+
+    try {
+        const response = await fetch(`/api/wellness-services?date=${targetDate}`);
+        const services = await response.json();
+        cachedWellnessList = services;
+        grid.innerHTML = "";
+
+        if (services.length === 0) {
+            grid.innerHTML = `<p class="text-muted">Nessun servizio benessere disponibile per la data selezionata.</p>`;
+            return;
+        }
+
+        const dateParts = targetDate.split("-");
+        const pickedDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
+        const dayCodes = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const targetDayCode = dayCodes[pickedDate.getDay()];
+        const targetDayName = DAY_NAMES_IT_MAP[targetDayCode] || targetDayCode;
+
+        services.forEach(s => {
+            const freeBadge = (s.free_for_subscriptions || []).length > 0 
+                ? `<span class="badge badge-success" style="font-size: 0.75rem;">GRATIS PER ${s.free_for_subscriptions.join(', ').toUpperCase()}</span>` 
+                : `<span class="badge badge-secondary" style="font-size: 0.75rem;">${s.price.toFixed(2)} €</span>`;
+
+            const slotAvail = s.slot_availabilities || {};
+            const slotsEntries = Object.entries(slotAvail);
+
+            let slotsHtml = "";
+            if (slotsEntries.length === 0) {
+                slotsHtml = `
+                    <div style="padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px; text-align: center; color: var(--text-muted); font-size: 0.85rem; border: 1px dashed rgba(255,255,255,0.1);">
+                        <i class="fa-solid fa-circle-info" style="margin-right: 4px;"></i> Non disponibile di <strong>${targetDayName}</strong>
+                    </div>
+                `;
+            } else {
+                slotsHtml = slotsEntries.map(([slot, info]) => {
+                    const isFull = info.available_seats <= 0;
+                    return `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; margin-bottom: 8px;">
+                            <div>
+                                <div style="font-weight: 600; font-size: 0.88rem; color: #fff;">
+                                    <i class="fa-solid fa-clock" style="color: var(--info-color); margin-right: 4px;"></i> ${slot}
+                                </div>
+                                <div style="font-size: 0.8rem; margin-top: 2px;">
+                                    <span class="badge ${isFull ? 'badge-danger' : 'badge-success'}" style="font-size: 0.75rem; padding: 3px 8px;">
+                                        <i class="fa-solid ${isFull ? 'fa-user-slash' : 'fa-users'}" style="margin-right: 3px;"></i>
+                                        ${isFull ? 'Esaurito (0 posti)' : `${info.available_seats} / ${info.max_capacity} posti liberi`}
+                                    </span>
+                                </div>
+                            </div>
+                            <button class="btn ${isFull ? 'btn-secondary' : 'btn-primary'} btn-sm" ${isFull ? 'disabled' : ''} onclick="quickBookWellness('wellness:${s.id}', '${targetDate}', '${slot}')" style="padding: 6px 12px; font-size: 0.8rem;">
+                                <i class="fa-solid ${isFull ? 'fa-lock' : 'fa-calendar-check'}"></i> ${isFull ? 'Completo' : 'Prenota'}
+                            </button>
+                        </div>
+                    `;
+                }).join("");
+            }
+
+            const card = document.createElement("div");
+            card.className = "glass-card padding-20 course-card";
+            card.style.display = "flex";
+            card.style.flexDirection = "column";
+            card.style.justifyContent = "space-between";
+
+            card.innerHTML = `
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                        <h3 style="font-size: 1.15rem; font-weight: 700; color: #fff; margin: 0;">${s.name}</h3>
+                        <div>${freeBadge}</div>
+                    </div>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">
+                        <i class="fa-solid fa-tag" style="color: var(--warning-color);"></i> Prezzo Base: <strong>${s.price.toFixed(2)} €</strong>
+                    </p>
+                </div>
+                <div>
+                    <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-bottom: 10px;">
+                        Disponibilità per ${targetDayName} (${targetDate}):
+                    </div>
+                    ${slotsHtml}
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+    } catch (e) {
+        console.error("Errore caricamento schede benessere", e);
+    }
+}
+
+function quickBookWellness(wellnessServiceVal, dateVal, timeSlotVal) {
+    const select = document.getElementById("bookingService");
+    const dateInput = document.getElementById("bookingDate");
+    const slotSelect = document.getElementById("bookingTimeSlot");
+
+    if (select) select.value = wellnessServiceVal;
+    if (dateInput) dateInput.value = dateVal;
+
+    updateTimeSlotsForSelectedDateAndCourse();
+
+    if (slotSelect && timeSlotVal) slotSelect.value = timeSlotVal;
+
+    const bookingSection = document.querySelector(".client-booking-section");
+    if (bookingSection) {
+        bookingSection.scrollIntoView({ behavior: "smooth" });
+        showToast("Servizio Benessere e orario selezionati! Clicca su Conferma Prenotazione.", "info");
+    }
+}
+
+window.quickBookWellness = quickBookWellness;
+
+function formatScheduleDropdownHTML(weeklyScheduleObj) {
+    if (!weeklyScheduleObj || Object.keys(weeklyScheduleObj).length === 0) {
+        return `<span class="badge badge-secondary" style="font-size: 0.75rem;">Nessun orario</span>`;
+    }
+    
+    const dayEntries = Object.entries(weeklyScheduleObj);
+    const dayCount = dayEntries.length;
+    
+    let optionsHtml = dayEntries.map(([dCode, slots]) => {
+        const dName = DAY_NAMES_IT_MAP[dCode] || dCode;
+        const slotsStr = slots.join(", ");
+        return `<option value="" disabled>📅 ${dName}: ${slotsStr}</option>`;
+    }).join("");
+
+    return `
+        <select onclick="event.stopPropagation();" style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: var(--info-color); border-radius: 8px; padding: 6px 12px; font-size: 0.82rem; font-weight: 600; cursor: pointer; max-width: 220px; outline: none; transition: all 0.2s ease;">
+            <option value="" disabled selected>🕒 Orari (${dayCount} giorn${dayCount === 1 ? 'o' : 'i'}) ▾</option>
+            ${optionsHtml}
+        </select>
+    `;
+}

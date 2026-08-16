@@ -188,3 +188,25 @@ class StaffResponse(StaffBase):
     class Config:
         from_attributes = True
 
+
+
+# --- Wellness Service Schemas ---
+class WellnessServiceBase(BaseModel):
+    name: str
+    price: float
+    weekly_schedule: Optional[Dict[str, List[str]]] = None
+    schedule: Optional[str] = None
+    max_capacity: int
+    free_for_subscriptions: List[str]
+
+class WellnessServiceCreate(WellnessServiceBase):
+    pass
+
+class WellnessServiceResponse(WellnessServiceBase):
+    id: str
+    booked_count: Optional[int] = 0
+    available_seats: Optional[int] = None
+    slot_availabilities: Optional[Dict[str, Any]] = None
+
+    class Config:
+        from_attributes = True

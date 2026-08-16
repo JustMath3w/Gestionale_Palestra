@@ -210,6 +210,15 @@
                     <!-- Caricato dinamicamente via JS -->
                 </div>
 
+                <!-- PALINSESTO SERVIZI BENESSERE (RF28) -->
+                <div class="section-title-wrapper margin-top-40">
+                    <h2>Servizi Benessere & Relax</h2>
+                    <p>Scopri i trattamenti benessere disponibili e verifica i posti liberi per ciascuna fascia oraria.</p>
+                </div>
+                <div class="courses-cards-grid" id="clientWellnessGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-top: 15px; margin-bottom: 40px;">
+                    <!-- Caricato dinamicamente via JS -->
+                </div>
+
                 <!-- SEZIONE ABBONAMENTI DISPONIBILI -->
                 <div class="section-title-wrapper">
                     <h2>Abbonamenti Disponibili</h2>
@@ -601,6 +610,38 @@
                         </div>
                     </div>
 
+                    <!-- GESTIONE SERVIZI BENESSERE (RF28) -->
+                    <div class="section-title-wrapper margin-top-40">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <div>
+                                <h2>Configurazione Servizi Benessere (RF28)</h2>
+                                <p>Crea, modifica o elimina i servizi benessere (es. Sauna, Poltrona Massaggiante, Jacuzzi).</p>
+                            </div>
+                            <button class="btn btn-primary" id="openAddWellnessBtn">
+                                <i class="fa-solid fa-plus"></i> Nuovo Servizio Benessere
+                            </button>
+                        </div>
+                    </div>
+                    <div class="glass-card padding-0 overflow-hidden" style="margin-bottom: 40px;">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Nome Servizio</th>
+                                        <th>Prezzo (€)</th>
+                                        <th>Capacità Max</th>
+                                        <th>Gratuito Per</th>
+                                        <th>Programmazione Orari</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminWellnessTable">
+                                    <!-- Caricato dinamicamente via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                 </div>
             </section>
 
@@ -720,6 +761,60 @@
         </div>
     </div>
 
+    <!-- MODALE DI AGGIUNTA/MODIFICA SERVIZIO BENESSERE (RF28) -->
+    <div class="modal" id="wellnessModal">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h2 id="wellnessModalTitle">Configura Servizio Benessere</h2>
+                <button class="modal-close" id="closeWellnessModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="wellnessForm">
+                    <input type="hidden" id="wellnessEditId" value="">
+                    <div class="form-group">
+                        <label for="wellnessName">Nome Servizio (es. Sauna Relax & Idromassaggio)</label>
+                        <input type="text" id="wellnessName" required placeholder="es. Sauna Relax">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="wellnessPrice">Prezzo (€)</label>
+                            <input type="number" id="wellnessPrice" required min="0" step="0.5" placeholder="10.00" value="10.00">
+                        </div>
+                        <div class="form-group">
+                            <label for="wellnessCapacity">Capacità Max (Posti per Slot)</label>
+                            <input type="number" id="wellnessCapacity" required min="1" placeholder="4" value="4">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Abbonamenti con Accesso Gratuito</label>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 6px;">
+                            <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
+                                <input type="checkbox" id="wlnSubBasic" value="basic"> Basic
+                            </label>
+                            <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
+                                <input type="checkbox" id="wlnSubPremium" value="premium"> Premium
+                            </label>
+                            <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
+                                <input type="checkbox" id="wlnSubVip" value="vip" checked> VIP
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group margin-top-15">
+                        <label style="font-weight: 600; font-size: 0.95rem; color: #fff;">Programmazione Orari per Giorno</label>
+                        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 10px;">Seleziona i giorni e spunta le fasce orarie in cui il servizio è disponibile.</p>
+                        <div id="wellnessWeeklyConfigContainer" style="display: flex; flex-direction: column; gap: 10px; margin-top: 5px;">
+                            <!-- Inserito dinamicamente da JS -->
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelWellnessBtn">Annulla</button>
+                <button class="btn btn-success" id="confirmWellnessBtn">Salva Servizio</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODALE DI AGGIUNTA/MODIFICA CORSO (RF10) -->
     <div class="modal" id="courseModal">
         <div class="modal-content glass-card">
@@ -734,19 +829,21 @@
                         <label for="courseName">Nome del Corso (es. Pilates, Spinning, Crossfit)</label>
                         <input type="text" id="courseName" required placeholder="es. Pilates">
                     </div>
-                    <div class="form-group">
-                        <label for="courseTrainer">Istruttore</label>
-                        <input type="text" id="courseTrainer" required placeholder="es. Marco Rossi">
-                    </div>
-                    <div class="form-group margin-top-15">
-                        <label for="courseCapacity" style="font-weight: 600;">Capacità Max Classe</label>
-                        <input type="number" id="courseCapacity" required min="1" placeholder="15" value="15">
+                    <div class="form-row" style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label for="courseTrainer">Istruttore</label>
+                            <input type="text" id="courseTrainer" required placeholder="es. Marco Rossi">
+                        </div>
+                        <div class="form-group">
+                            <label for="courseCapacity">Capacità Max</label>
+                            <input type="number" id="courseCapacity" required min="1" placeholder="15" value="15">
+                        </div>
                     </div>
                     <div class="form-group margin-top-15">
                         <label style="font-weight: 600; font-size: 0.95rem; color: #fff;">Programmazione Orari per Giorno</label>
                         <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 10px;">Seleziona i giorni e spunta le fasce orarie desiderate per ciascun giorno (puoi selezionare più orari per giorno).</p>
                         
-                        <div id="courseWeeklyConfigContainer" style="display: flex; flex-direction: column; gap: 10px; max-height: 280px; overflow-y: auto; padding-right: 5px;">
+                        <div id="weeklyScheduleConfigContainer" style="display: flex; flex-direction: column; gap: 10px; margin-top: 5px;">
                             <!-- Inserito dinamicamente da JS per ciascun giorno -->
                         </div>
                     </div>
@@ -901,6 +998,6 @@
     <div class="toast" id="toast">Notifica</div>
 
     <!-- Custom JS App -->
-    <script src="app.js?v=1.6"></script>
+    <script src="app.js?v=2.4"></script>
 </body>
 </html>

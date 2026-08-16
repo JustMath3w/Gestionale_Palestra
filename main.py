@@ -415,43 +415,69 @@ def book_service(booking_data: schemas.BookingCreate, uow: GymUnitOfWork = Depen
             if cb.member_id == booking_data.member_id:
                 raise HTTPException(status_code=400, detail="Sei già iscritto a questo corso per questo giorno/ora.")
 
-    # 2. Caso Servizi Benessere (Sauna o Poltrona Massaggio)
-    elif booking_data.service_type in ["sauna", "massage_chair"]:
-        # Se l'utente non ha un abbonamento VIP, i servizi speciali si pagano a parte (es: Sauna 10€, Poltrona 5€)
-        if booking_data.service_type == "sauna":
-            capacity_limit = 5  # Massimo 5 persone contemporaneamente nella sauna
-            if "sauna" not in sub_type.services:
-                cost = 10.0
-        else:  # massage_chair
-            capacity_limit = 2  # Massimo 2 poltrone massaggianti prenotabili insieme
-            if "massage_chair" not in sub_type.services:
-                cost = 5.0
-                
-        # Verifica disponibilità slot
+    # 2. Caso Servizi Benessere
+    else:
+        raw_id = booking_data.service_type.replace("wellness:", "")
+        wellness_service = uow.wellness_services.get_by_id(raw_id)
+        if not wellness_service:
+            all_ws = uow.wellness_services.get_all()
+            for ws_item in all_ws:
+                if ws_item.id == raw_id or ws_item.name.lower() == raw_id.lower():
+                    wellness_service = ws_item
+                    break
+
+        if not wellness_service:
+            raise HTTPException(status_code=404, detail="Servizio benessere non trovato.")
+
+        DAYS_MAP = {0: "Mon", 1: "Tue", 2: "Wed", 3: "Thu", 4: "Fri", 5: "Sat", 6: "Sun"}
+        DAY_NAMES_IT = {"Mon": "Lunedì", "Tue": "Martedì", "Wed": "Mercoledì", "Thu": "Giovedì", "Fri": "Venerdì", "Sat": "Sabato", "Sun": "Domenica"}
+
+        try:
+            booking_date_obj = datetime.strptime(booking_data.booking_date, "%Y-%m-%d").date()
+            day_code = DAYS_MAP[booking_date_obj.weekday()]
+            ws_sched = wellness_service.weekly_schedule
+            if ws_sched and day_code not in ws_sched:
+                allowed_days_it = ", ".join([DAY_NAMES_IT.get(d, d) for d in ws_sched.keys()])
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Il servizio '{wellness_service.name}' non è disponibile di {DAY_NAMES_IT.get(day_code, day_code)}. Giorni previsti: {allowed_days_it}."
+                )
+
+            valid_slots = ws_sched.get(day_code, []) if ws_sched else []
+            if valid_slots and booking_data.time_slot not in valid_slots:
+                valid_slots_str = ", ".join(valid_slots)
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"L'orario ({booking_data.time_slot}) non è disponibile per {DAY_NAMES_IT.get(day_code, day_code)}. Orari previsti: {valid_slots_str}."
+                )
+        except ValueError:
+            pass
+
         all_bookings = uow.bookings.get_all()
         slot_bookings = [
             b for b in all_bookings 
-            if b.service_type == booking_data.service_type 
+            if (b.service_type == booking_data.service_type or b.service_type == f"wellness:{wellness_service.id}" or b.service_type == wellness_service.id)
             and b.booking_date == booking_data.booking_date 
             and b.time_slot == booking_data.time_slot
         ]
-        if len(slot_bookings) >= capacity_limit:
+        if len(slot_bookings) >= wellness_service.max_capacity:
             raise HTTPException(status_code=400, detail="Servizio esaurito per questo slot orario.")
-            
-        # Controlla se l'utente è già prenotato nello stesso slot
+
         for sb in slot_bookings:
             if sb.member_id == booking_data.member_id:
                 raise HTTPException(status_code=400, detail="Hai già una prenotazione per questo servizio in questo slot.")
-                
-        # Addebita il costo se necessario
+
+        free_subs = wellness_service.free_for_subscriptions or []
+        is_free = (sub_type.id in free_subs) or ("vip" in sub_type.id) or (wellness_service.id in sub_type.services)
+        
+        if not is_free:
+            cost = wellness_service.price
+
         if cost > 0.0:
             if member.balance < cost:
-                raise HTTPException(status_code=400, detail=f"Credito insufficiente per prenotare questo servizio speciale (Costo: {cost}€).")
+                raise HTTPException(status_code=400, detail=f"Credito insufficiente per prenotare questo servizio (Costo: {cost:.2f}€, Saldo: {member.balance:.2f}€).")
             member.balance -= cost
             uow.members.save(member)
-            
-    else:
-        raise HTTPException(status_code=400, detail="Tipo di servizio non supportato.")
         
     # Registra prenotazione
     new_booking = models.Booking(
@@ -797,3 +823,75 @@ def read_root():
     # Redirect automatico all'index.html statico
     from fastapi.responses import RedirectResponse
     return RedirectResponse(url="/static/index.html")
+
+
+@app.get("/api/wellness-services", response_model=List[schemas.WellnessServiceResponse], tags=["Servizi Benessere"])
+def get_wellness_services(date: Optional[str] = Query(None), uow: GymUnitOfWork = Depends(get_uow)):
+    services = uow.wellness_services.get_all()
+    all_bookings = uow.bookings.get_all() if date else []
+
+    DAYS_MAP = {0: "Mon", 1: "Tue", 2: "Wed", 3: "Thu", 4: "Fri", 5: "Sat", 6: "Sun"}
+    target_day_code = None
+    if date:
+        try:
+            target_date_obj = datetime.strptime(date, "%Y-%m-%d").date()
+            target_day_code = DAYS_MAP[target_date_obj.weekday()]
+        except ValueError:
+            pass
+
+    result = []
+    for s in services:
+        s_dict = s.to_dict()
+        ws = s.weekly_schedule or {}
+        
+        if date and target_day_code:
+            day_slots = ws.get(target_day_code, [])
+            if not day_slots:
+                s_dict["booked_count"] = 0
+                s_dict["available_seats"] = 0
+                s_dict["slot_availabilities"] = {}
+            else:
+                target_service = f"wellness:{s.id}"
+                slot_avail = {}
+                total_avail = 0
+                total_booked = 0
+                for slot in day_slots:
+                    booked = sum(
+                        1 for b in all_bookings 
+                        if (b.service_type == target_service or b.service_type == s.id) 
+                        and b.booking_date == date 
+                        and b.time_slot == slot
+                    )
+                    avail = max(0, s.max_capacity - booked)
+                    slot_avail[slot] = {
+                        "booked_count": booked,
+                        "available_seats": avail,
+                        "max_capacity": s.max_capacity
+                    }
+                    total_avail += avail
+                    total_booked += booked
+                s_dict["booked_count"] = total_booked
+                s_dict["available_seats"] = total_avail
+                s_dict["slot_availabilities"] = slot_avail
+        else:
+            s_dict["booked_count"] = 0
+            s_dict["available_seats"] = s.max_capacity
+            s_dict["slot_availabilities"] = {}
+        result.append(s_dict)
+    return result
+
+@app.post("/api/wellness-services", response_model=schemas.WellnessServiceResponse, tags=["Servizi Benessere (Admin)"])
+def create_or_update_wellness_service(service_data: schemas.WellnessServiceBase, service_id: Optional[str] = None, uow: GymUnitOfWork = Depends(get_uow)):
+    data = service_data.dict()
+    if service_id:
+        data["id"] = service_id
+    service = models.WellnessService.from_dict(data)
+    saved = uow.wellness_services.save(service)
+    return saved
+
+@app.delete("/api/wellness-services/{service_id}", tags=["Servizi Benessere (Admin)"])
+def delete_wellness_service(service_id: str, uow: GymUnitOfWork = Depends(get_uow)):
+    success = uow.wellness_services.delete(service_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Servizio benessere non trovato.")
+    return {"success": True, "message": "Servizio benessere rimosso con successo."}

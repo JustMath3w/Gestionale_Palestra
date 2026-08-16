@@ -225,3 +225,58 @@ def test_course_management_and_availability():
     avail_wed = client.get("/api/courses?date=2026-09-02").json()
     crossfit_wed = next(c for c in avail_wed if c["id"] == course_id)
     assert crossfit_wed["available_seats"] == 0
+
+
+def test_wellness_services_management_and_booking():
+    # 1. Admin crea nuovo servizio benessere (es. Solarium Facial)
+    wellness_payload = {
+        "name": "Solarium Facial",
+        "price": 12.0,
+        "max_capacity": 1,
+        "free_for_subscriptions": ["vip"],
+        "weekly_schedule": {
+            "Mon": ["10:00 - 11:00", "15:00 - 16:00"]
+        }
+    }
+    create_resp = client.post("/api/wellness-services", json=wellness_payload)
+    assert create_resp.status_code == 200
+    wellness_data = create_resp.json()
+    service_id = wellness_data["id"]
+
+    # 2. Verifica disponibilita per un Lunedi (2026-08-17)
+    avail_mon = client.get("/api/wellness-services?date=2026-08-17").json()
+    solarium_mon = next(s for s in avail_mon if s["id"] == service_id)
+    assert solarium_mon["slot_availabilities"]["10:00 - 11:00"]["available_seats"] == 1
+
+    # 3. Registrazione nuovo membro con abbonamento basic e ricarica
+    reg_data = client.post("/api/auth/register", json={
+        "first_name": "Elena",
+        "last_name": "Verdi",
+        "email": "elena.wellness@example.com",
+        "password": "password123"
+    }).json()
+    member_id = reg_data["id"]
+    client.post(f"/api/members/{member_id}/recharge", json={"amount": 60.0})
+    client.post(f"/api/members/{member_id}/subscribe", json={
+        "member_id": member_id,
+        "subscription_type_id": "basic",
+        "start_date": "2026-08-01"
+    })
+
+    # 4. Prenotazione del Solarium
+    book_resp = client.post("/api/bookings", json={
+        "member_id": member_id,
+        "service_type": f"wellness:{service_id}",
+        "booking_date": "2026-08-17",
+        "time_slot": "10:00 - 11:00"
+    })
+    assert book_resp.status_code == 200
+
+    # 5. Verifica che il saldo sia sceso a 8.01€ (60 - 39.99 - 12)
+    member_data = client.get(f"/api/members/{member_id}").json()
+    assert round(member_data["balance"], 2) == 8.01
+
+    # 6. Verifica che lo slot sia ora esaurito (capienza max 1)
+    avail_after = client.get("/api/wellness-services?date=2026-08-17").json()
+    solarium_after = next(s for s in avail_after if s["id"] == service_id)
+    assert solarium_after["slot_availabilities"]["10:00 - 11:00"]["available_seats"] == 0

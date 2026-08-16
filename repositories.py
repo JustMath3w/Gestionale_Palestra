@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional
 from sqlalchemy.orm import Session
 import config
-from models import Base, Member, SubscriptionType, MemberSubscription, Course, Booking, Product, Purchase, AccessLog, Staff
+from models import Base, Member, SubscriptionType, MemberSubscription, Course, Booking, Product, Purchase, AccessLog, Staff, WellnessService
 
 # ==========================================
 # 1. INTERFACCE ASTRATTE (REPOSITORY PATTERN)
@@ -105,6 +105,24 @@ class IStaffRepository(ABC):
 # ==========================================
 # 2. IMPLEMENTAZIONE JSON (PERSISTENZA SU FILE)
 # ==========================================
+
+
+class IWellnessServiceRepository(ABC):
+    @abstractmethod
+    def get_by_id(self, id: str) -> Optional[WellnessService]:
+        pass
+
+    @abstractmethod
+    def get_all(self) -> List[WellnessService]:
+        pass
+
+    @abstractmethod
+    def save(self, service: WellnessService) -> WellnessService:
+        pass
+
+    @abstractmethod
+    def delete(self, id: str) -> bool:
+        pass
 
 class JSONRepositoryBase:
     def __init__(self, filename: str):
@@ -444,6 +462,68 @@ class JSONStaffRepository(JSONRepositoryBase, IStaffRepository):
         return len(items) < initial_len
 
 
+
+class JSONWellnessServiceRepository(JSONRepositoryBase, IWellnessServiceRepository):
+    def __init__(self):
+        super().__init__("wellness_services.json")
+        self._ensure_defaults()
+
+    def _ensure_defaults(self):
+        items = self._load_all()
+        if not items:
+            default_slots = ["08:00 - 09:00", "09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00", "14:00 - 15:00", "15:00 - 16:00", "16:00 - 17:00", "18:00 - 19:00", "19:30 - 20:30"]
+            std_schedule = {d: default_slots for d in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]}
+            defaults = [
+                {
+                    "id": "sauna",
+                    "name": "Sauna Relax & Idromassaggio",
+                    "price": 10.0,
+                    "max_capacity": 4,
+                    "free_for_subscriptions": ["vip"],
+                    "weekly_schedule": std_schedule
+                },
+                {
+                    "id": "massage_chair",
+                    "name": "Poltrona Massaggiante Shiatsu",
+                    "price": 5.0,
+                    "max_capacity": 1,
+                    "free_for_subscriptions": ["vip"],
+                    "weekly_schedule": std_schedule
+                }
+            ]
+            self._save_all(defaults)
+
+    def get_by_id(self, id: str) -> Optional[WellnessService]:
+        items = self._load_all()
+        for item in items:
+            if item["id"] == id:
+                return WellnessService.from_dict(item)
+        return None
+
+    def get_all(self) -> List[WellnessService]:
+        return [WellnessService.from_dict(item) for item in self._load_all()]
+
+    def save(self, service: WellnessService) -> WellnessService:
+        items = self._load_all()
+        s_dict = service.to_dict()
+        updated = False
+        for i, item in enumerate(items):
+            if item["id"] == service.id:
+                items[i] = s_dict
+                updated = True
+                break
+        if not updated:
+            items.append(s_dict)
+        self._save_all(items)
+        return service
+
+    def delete(self, id: str) -> bool:
+        items = self._load_all()
+        initial_len = len(items)
+        items = [item for item in items if item["id"] != id]
+        self._save_all(items)
+        return len(items) < initial_len
+
 # ==========================================
 # 3. IMPLEMENTAZIONE SQLITE (CON SQLALCHEMY)
 # ==========================================
@@ -714,6 +794,78 @@ class SQLiteStaffRepository(IStaffRepository):
 # 4. GESTORE DEI REPOSITORY (UNIT OF WORK / MANAGER)
 # ==========================================
 
+
+class SQLiteWellnessServiceRepository(IWellnessServiceRepository):
+    def __init__(self, db_session):
+        self.db = db_session
+
+    def get_by_id(self, id: str) -> Optional[WellnessService]:
+        return self.db.query(WellnessService).filter(WellnessService.id == id).first()
+
+    def get_all(self) -> List[WellnessService]:
+        return self.db.query(WellnessService).all()
+
+    def save(self, service: WellnessService) -> WellnessService:
+        existing = self.get_by_id(service.id) if service.id else None
+        if existing:
+            existing.name = service.name
+            existing.price = service.price
+            existing.weekly_schedule_str = service.weekly_schedule_str
+            existing.max_capacity = service.max_capacity
+            existing.free_for_subscriptions_str = service.free_for_subscriptions_str
+            self.db.commit()
+            self.db.refresh(existing)
+            return existing
+        else:
+            self.db.add(service)
+            self.db.commit()
+            self.db.refresh(service)
+            return service
+
+    def delete(self, id: str) -> bool:
+        obj = self.get_by_id(id)
+        if obj:
+            self.db.delete(obj)
+            self.db.commit()
+            return True
+        return False
+
+
+class SQLiteWellnessServiceRepository(IWellnessServiceRepository):
+    def __init__(self, db_session):
+        self.db = db_session
+
+    def get_by_id(self, id: str) -> Optional[WellnessService]:
+        return self.db.query(WellnessService).filter(WellnessService.id == id).first()
+
+    def get_all(self) -> List[WellnessService]:
+        return self.db.query(WellnessService).all()
+
+    def save(self, service: WellnessService) -> WellnessService:
+        existing = self.get_by_id(service.id) if service.id else None
+        if existing:
+            existing.name = service.name
+            existing.price = service.price
+            existing.weekly_schedule_str = service.weekly_schedule_str
+            existing.max_capacity = service.max_capacity
+            existing.free_for_subscriptions_str = service.free_for_subscriptions_str
+            self.db.commit()
+            self.db.refresh(existing)
+            return existing
+        else:
+            self.db.add(service)
+            self.db.commit()
+            self.db.refresh(service)
+            return service
+
+    def delete(self, id: str) -> bool:
+        obj = self.get_by_id(id)
+        if obj:
+            self.db.delete(obj)
+            self.db.commit()
+            return True
+        return False
+
 class GymUnitOfWork:
     """
     Contiene le istanze di tutti i repository attivi.
@@ -734,6 +886,7 @@ class GymUnitOfWork:
             self.purchases = SQLitePurchaseRepository(db_session)
             self.access_logs = SQLiteAccessLogRepository(db_session)
             self.staff = SQLiteStaffRepository(db_session)
+            self.wellness_services = SQLiteWellnessServiceRepository(db_session)
             
             self._seed_initial_data()
         else:
@@ -746,6 +899,7 @@ class GymUnitOfWork:
             self.purchases = JSONPurchaseRepository()
             self.access_logs = JSONAccessLogRepository()
             self.staff = JSONStaffRepository()
+            self.wellness_services = JSONWellnessServiceRepository()
             
             # Popola dati iniziali se vuoti per simulazione
             self._seed_initial_data()

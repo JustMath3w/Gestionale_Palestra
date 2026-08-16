@@ -384,3 +384,80 @@ class Staff(Base):
             password_hash=data.get("password_hash"),
             role=data.get("role", "admin")
         )
+
+
+class WellnessService(Base):
+    __tablename__ = "wellness_services"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String, nullable=False)
+    price = Column(Float, default=0.0)
+    weekly_schedule_str = Column(String, default="{}")
+    max_capacity = Column(Integer, default=4)
+    free_for_subscriptions_str = Column(String, default="vip")
+
+    @property
+    def weekly_schedule(self):
+        if self.weekly_schedule_str:
+            try:
+                res = json.loads(self.weekly_schedule_str)
+                if isinstance(res, dict) and res:
+                    return res
+            except Exception:
+                pass
+        all_slots = ["08:00 - 09:00", "09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00", "14:00 - 15:00", "15:00 - 16:00", "16:00 - 17:00", "17:00 - 18:00", "18:00 - 19:00", "19:30 - 20:30"]
+        return {d: all_slots for d in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]}
+
+    @weekly_schedule.setter
+    def weekly_schedule(self, value):
+        if isinstance(value, dict):
+            self.weekly_schedule_str = json.dumps(value)
+        else:
+            self.weekly_schedule_str = "{}"
+
+    @property
+    def free_for_subscriptions(self):
+        return [s.strip() for s in self.free_for_subscriptions_str.split(",") if s.strip()] if self.free_for_subscriptions_str else []
+
+    @free_for_subscriptions.setter
+    def free_for_subscriptions(self, value):
+        self.free_for_subscriptions_str = ",".join(value) if value else ""
+
+    @property
+    def schedule(self):
+        ws = self.weekly_schedule
+        if ws:
+            parts = []
+            for d_code, slots in ws.items():
+                d_label = DAY_SHORT_IT.get(d_code, d_code)
+                slots_label = ", ".join(slots)
+                parts.append(f"{d_label}: {slots_label}")
+            return " | ".join(parts)
+        return "Tutti i giorni"
+
+    def to_dict(self):
+        if not self.id:
+            self.id = str(uuid.uuid4())
+        return {
+            "id": self.id,
+            "name": self.name,
+            "price": self.price,
+            "weekly_schedule": self.weekly_schedule,
+            "schedule": self.schedule,
+            "max_capacity": self.max_capacity,
+            "free_for_subscriptions": self.free_for_subscriptions
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        ws = data.get("weekly_schedule", {})
+        obj = cls(
+            id=data.get("id"),
+            name=data.get("name"),
+            price=float(data.get("price", 0.0)),
+            max_capacity=int(data.get("max_capacity", 4))
+        )
+        if ws and isinstance(ws, dict):
+            obj.weekly_schedule = ws
+        obj.free_for_subscriptions = data.get("free_for_subscriptions", ["vip"])
+        return obj
