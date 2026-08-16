@@ -196,3 +196,32 @@ def test_update_member_and_past_booking():
     assert "data passata" in past_resp.json()["detail"]
 
 
+
+
+def test_course_management_and_availability():
+    # 1. Admin crea nuovo corso con multiple fasce orarie per giorno
+    course_payload = {
+        "name": "Crossfit Extreme",
+        "trainer": "Giovanni Rossi",
+        "weekly_schedule": {
+            "Tue": ["09:00 - 10:00", "19:30 - 20:30"],
+            "Thu": ["19:30 - 20:30"]
+        },
+        "max_capacity": 2,
+        "allowed_subscriptions": ["premium", "vip"]
+    }
+    create_resp = client.post("/api/courses", json=course_payload)
+    assert create_resp.status_code == 200
+    course_data = create_resp.json()
+    course_id = course_data["id"]
+
+    # 2026-09-01 is a Tuesday (Tue)
+    avail_tue = client.get("/api/courses?date=2026-09-01").json()
+    crossfit_tue = next(c for c in avail_tue if c["id"] == course_id)
+    assert crossfit_tue["slot_availabilities"]["09:00 - 10:00"]["available_seats"] == 2
+    assert crossfit_tue["slot_availabilities"]["19:30 - 20:30"]["available_seats"] == 2
+
+    # 2026-09-02 is a Wednesday (Wed) -> Non in programma, deve restituire 0 posti
+    avail_wed = client.get("/api/courses?date=2026-09-02").json()
+    crossfit_wed = next(c for c in avail_wed if c["id"] == course_id)
+    assert crossfit_wed["available_seats"] == 0

@@ -2,10 +2,10 @@ import os
 import hashlib
 from datetime import datetime, date, timedelta
 
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 import config
 import schemas
@@ -281,8 +281,54 @@ def get_member_subscriptions(member_id: str, uow: GymUnitOfWork = Depends(get_uo
 # =====================================================================
 
 @app.get("/api/courses", response_model=List[schemas.CourseResponse], tags=["Corsi"])
-def get_courses(uow: GymUnitOfWork = Depends(get_uow)):
-    return uow.courses.get_all()
+def get_courses(date: Optional[str] = Query(None), uow: GymUnitOfWork = Depends(get_uow)):
+    courses = uow.courses.get_all()
+    all_bookings = uow.bookings.get_all() if date else []
+    
+    DAYS_MAP = {0: "Mon", 1: "Tue", 2: "Wed", 3: "Thu", 4: "Fri", 5: "Sat", 6: "Sun"}
+    target_day_code = None
+    if date:
+        try:
+            target_date_obj = datetime.strptime(date, "%Y-%m-%d").date()
+            target_day_code = DAYS_MAP[target_date_obj.weekday()]
+        except ValueError:
+            pass
+
+    result = []
+    for c in courses:
+        c_dict = c.to_dict()
+        ws = c.weekly_schedule or {}
+        
+        if date and target_day_code:
+            day_slots = ws.get(target_day_code, [])
+            if not day_slots:
+                c_dict["booked_count"] = 0
+                c_dict["available_seats"] = 0
+                c_dict["slot_availabilities"] = {}
+            else:
+                target_service = f"course:{c.id}"
+                slot_avail = {}
+                total_avail = 0
+                total_booked = 0
+                for slot in day_slots:
+                    booked = sum(1 for b in all_bookings if b.service_type == target_service and b.booking_date == date and b.time_slot == slot)
+                    avail = max(0, c.max_capacity - booked)
+                    slot_avail[slot] = {
+                        "booked_count": booked,
+                        "available_seats": avail,
+                        "max_capacity": c.max_capacity
+                    }
+                    total_avail += avail
+                    total_booked += booked
+                c_dict["booked_count"] = total_booked
+                c_dict["available_seats"] = total_avail
+                c_dict["slot_availabilities"] = slot_avail
+        else:
+            c_dict["booked_count"] = 0
+            c_dict["available_seats"] = c.max_capacity
+            c_dict["slot_availabilities"] = {}
+        result.append(c_dict)
+    return result
 
 
 @app.post("/api/bookings", response_model=schemas.BookingResponse, tags=["Prenotazioni"])
@@ -327,6 +373,31 @@ def book_service(booking_data: schemas.BookingCreate, uow: GymUnitOfWork = Depen
         # Verifica se il tipo di abbonamento consente l'accesso ai corsi
         if "corsi" not in sub_type.services and "vip" not in sub_type.id:
             raise HTTPException(status_code=403, detail="Il tuo abbonamento non include l'accesso ai corsi.")
+
+        # Verifica se la data prenotata corrisponde ai giorni di svolgimento del corso
+        DAYS_MAP = {0: "Mon", 1: "Tue", 2: "Wed", 3: "Thu", 4: "Fri", 5: "Sat", 6: "Sun"}
+        DAY_NAMES_IT = {"Mon": "Lunedì", "Tue": "Martedì", "Wed": "Mercoledì", "Thu": "Giovedì", "Fri": "Venerdì", "Sat": "Sabato", "Sun": "Domenica"}
+
+        try:
+            booking_date_obj = datetime.strptime(booking_data.booking_date, "%Y-%m-%d").date()
+            day_code = DAYS_MAP[booking_date_obj.weekday()]
+            ws = course.weekly_schedule
+            if ws and day_code not in ws:
+                allowed_days_it = ", ".join([DAY_NAMES_IT.get(d, d) for d in ws.keys()])
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Il corso '{course.name}' non si svolge di {DAY_NAMES_IT.get(day_code, day_code)}. Si svolge nei giorni: {allowed_days_it}."
+                )
+            
+            valid_slots = ws.get(day_code, []) if ws else ([course.time_slot] if course.time_slot else [])
+            if valid_slots and booking_data.time_slot not in valid_slots:
+                valid_slots_str = ", ".join(valid_slots)
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"L'orario selezionato ({booking_data.time_slot}) non è disponibile per {DAY_NAMES_IT.get(day_code, day_code)}. Orari previsti: {valid_slots_str}."
+                )
+        except ValueError:
+            pass
             
         # Verifica capacità posti
         all_bookings = uow.bookings.get_all()

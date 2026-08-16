@@ -344,6 +344,7 @@ async function loadClientDashboard() {
 
     // 6. Carica Prodotti Smart Bar
     loadSmartBarProducts();
+    loadClientCoursesCards();
 }
 
 // Disdici Abbonamento Attivo
@@ -753,6 +754,7 @@ async function loadAdminDashboard() {
 
         // 4. Storico Sottoscrizioni
         loadSubscriptionHistory();
+        loadAdminCoursesTable();
 
         // 5. Catalogo Prodotti (RF18)
         loadAdminProductsTable();
@@ -1539,3 +1541,453 @@ async function deleteStaff(id) {
         showToast("Errore di rete", "error");
     }
 }
+
+
+// --- GESTIONE CORSI ADMIN (RF10) ---
+let cachedCoursesList = [];
+
+const STANDARD_TIME_SLOTS = [
+    "08:00 - 09:00",
+    "09:00 - 10:00",
+    "10:00 - 11:00",
+    "11:00 - 12:00",
+    "14:00 - 15:00",
+    "15:00 - 16:00",
+    "16:00 - 17:00",
+    "17:00 - 18:00",
+    "18:00 - 19:00",
+    "19:30 - 20:30"
+];
+
+const ALL_DAYS_CODES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAY_NAMES_IT_MAP = {
+    "Mon": "Lunedì", "Tue": "Martedì", "Wed": "Mercoledì", "Thu": "Giovedì",
+    "Fri": "Venerdì", "Sat": "Sabato", "Sun": "Domenica"
+};
+
+function renderWeeklyScheduleConfig(weeklyScheduleData = {}) {
+    const container = document.getElementById("courseWeeklyConfigContainer");
+    if (!container) return;
+    container.innerHTML = "";
+
+    ALL_DAYS_CODES.forEach(dCode => {
+        const dayName = DAY_NAMES_IT_MAP[dCode];
+        const activeSlots = weeklyScheduleData[dCode] || [];
+        const isDayChecked = activeSlots.length > 0;
+
+        const card = document.createElement("div");
+        card.className = "day-slot-card glass-card";
+        card.style.cssText = "padding: 10px 14px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;";
+
+        let slotsCheckboxesHtml = STANDARD_TIME_SLOTS.map(slot => {
+            const isChecked = activeSlots.includes(slot);
+            return `
+                <label style="display: flex; align-items: center; gap: 4px; font-size: 0.8rem; font-weight: normal; cursor: pointer; color: #e2e8f0;">
+                    <input type="checkbox" class="slot-cb-${dCode}" value="${slot}" ${isChecked ? 'checked' : ''}> ${slot}
+                </label>
+            `;
+        }).join("");
+
+        card.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; color: var(--primary-color); font-size: 0.9rem;">
+                    <input type="checkbox" id="toggleDay_${dCode}" ${isDayChecked ? 'checked' : ''} onchange="toggleDaySlotsVisibility('${dCode}')"> ${dayName}
+                </label>
+                <span style="font-size: 0.75rem; color: var(--text-muted);" id="slotCountLabel_${dCode}">${activeSlots.length} fasce orarie</span>
+            </div>
+            <div id="slotsBox_${dCode}" style="display: ${isDayChecked ? 'grid' : 'none'}; grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)); gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.05);">
+                ${slotsCheckboxesHtml}
+            </div>
+        `;
+
+        container.appendChild(card);
+    });
+}
+
+function toggleDaySlotsVisibility(dCode) {
+    const isChecked = document.getElementById(`toggleDay_${dCode}`).checked;
+    const box = document.getElementById(`slotsBox_${dCode}`);
+    if (box) box.style.display = isChecked ? "grid" : "none";
+}
+window.toggleDaySlotsVisibility = toggleDaySlotsVisibility;
+
+const courseModal = document.getElementById("courseModal");
+const openAddCourseBtn = document.getElementById("openAddCourseBtn");
+const closeCourseModalBtn = document.getElementById("closeCourseModalBtn");
+const cancelCourseBtn = document.getElementById("cancelCourseBtn");
+const confirmCourseBtn = document.getElementById("confirmCourseBtn");
+
+if (openAddCourseBtn) {
+    openAddCourseBtn.addEventListener("click", () => {
+        document.getElementById("courseModalTitle").textContent = "Pianifica Nuovo Corso";
+        document.getElementById("courseEditId").value = "";
+        document.getElementById("courseName").value = "";
+        document.getElementById("courseTrainer").value = "";
+        document.getElementById("courseCapacity").value = "15";
+
+        document.getElementById("crsSubBasic").checked = false;
+        document.getElementById("crsSubPremium").checked = true;
+        document.getElementById("crsSubVip").checked = true;
+
+        renderWeeklyScheduleConfig({
+            "Mon": ["18:00 - 19:00"],
+            "Wed": ["18:00 - 19:00"]
+        });
+
+        if (courseModal) courseModal.classList.add("open");
+    });
+}
+
+if (closeCourseModalBtn) closeCourseModalBtn.addEventListener("click", () => courseModal.classList.remove("open"));
+if (cancelCourseBtn) cancelCourseBtn.addEventListener("click", () => courseModal.classList.remove("open"));
+
+if (confirmCourseBtn) {
+    confirmCourseBtn.addEventListener("click", async () => {
+        const courseId = document.getElementById("courseEditId").value;
+        const name = document.getElementById("courseName").value.trim();
+        const trainer = document.getElementById("courseTrainer").value.trim();
+        const max_capacity = parseInt(document.getElementById("courseCapacity").value);
+
+        const weekly_schedule = {};
+        ALL_DAYS_CODES.forEach(dCode => {
+            const toggle = document.getElementById(`toggleDay_${dCode}`);
+            if (toggle && toggle.checked) {
+                const checkedSlots = [];
+                document.querySelectorAll(`.slot-cb-${dCode}:checked`).forEach(cb => {
+                    checkedSlots.push(cb.value);
+                });
+                if (checkedSlots.length > 0) {
+                    weekly_schedule[dCode] = checkedSlots;
+                }
+            }
+        });
+
+        if (!name || !trainer || Object.keys(weekly_schedule).length === 0 || isNaN(max_capacity) || max_capacity <= 0) {
+            showToast("Compila nome, istruttore e seleziona almeno un giorno con almeno una fascia oraria.", "error");
+            return;
+        }
+
+        const allowed_subscriptions = [];
+        if (document.getElementById("crsSubBasic").checked) allowed_subscriptions.push("basic");
+        if (document.getElementById("crsSubPremium").checked) allowed_subscriptions.push("premium");
+        if (document.getElementById("crsSubVip").checked) allowed_subscriptions.push("vip");
+
+        const payload = {
+            name,
+            trainer,
+            weekly_schedule,
+            max_capacity,
+            allowed_subscriptions
+        };
+
+        try {
+            const url = courseId ? `/api/courses?course_id=${courseId}` : "/api/courses";
+            const response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                showToast("Corso salvato con successo!", "success");
+                courseModal.classList.remove("open");
+                loadAdminDashboard();
+                loadCoursesDropdown();
+                loadClientCoursesCards();
+            } else {
+                const err = await response.json();
+                showToast(err.detail || "Errore durante il salvataggio del corso", "error");
+            }
+        } catch (e) {
+            showToast("Errore di connessione al server", "error");
+        }
+    });
+}
+
+async function loadAdminCoursesTable() {
+    try {
+        const response = await fetch("/api/courses");
+        const courses = await response.json();
+        cachedCoursesList = courses;
+        const tbody = document.getElementById("adminCoursesTable");
+        if (!tbody) return;
+        tbody.innerHTML = "";
+
+        courses.forEach(c => {
+            const tr = document.createElement("tr");
+            const subsBadges = (c.allowed_subscriptions || []).map(s => `<span class="badge badge-secondary" style="font-size: 0.7rem; margin-right: 2px; text-transform: uppercase;">${s}</span>`).join("") || "Tutti";
+            const courseJsonStr = encodeURIComponent(JSON.stringify(c));
+            tr.innerHTML = `
+                <td><strong>${c.name}</strong></td>
+                <td>${c.trainer}</td>
+                <td><i class="fa-solid fa-clock" style="color: var(--info-color);"></i> ${c.schedule}</td>
+                <td><span class="badge badge-info">${c.max_capacity} posti</span></td>
+                <td>${subsBadges}</td>
+                <td>
+                    <button class="btn btn-secondary btn-sm" onclick="editCourseFromJSON('${courseJsonStr}')" title="Modifica">
+                        <i class="fa-solid fa-pen"></i> Modifica
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteCourse('${c.id}')" title="Elimina">
+                        <i class="fa-solid fa-trash"></i> Elimina
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (e) {
+        console.error("Errore caricamento corsi admin", e);
+    }
+}
+
+function editCourseFromJSON(encodedJson) {
+    const c = JSON.parse(decodeURIComponent(encodedJson));
+    document.getElementById("courseModalTitle").textContent = "Modifica Corso";
+    document.getElementById("courseEditId").value = c.id;
+    document.getElementById("courseName").value = c.name;
+    document.getElementById("courseTrainer").value = c.trainer;
+    document.getElementById("courseCapacity").value = c.max_capacity;
+
+    const subs = c.allowed_subscriptions || [];
+    document.getElementById("crsSubBasic").checked = subs.includes("basic");
+    document.getElementById("crsSubPremium").checked = subs.includes("premium");
+    document.getElementById("crsSubVip").checked = subs.includes("vip");
+
+    renderWeeklyScheduleConfig(c.weekly_schedule || {});
+
+    if (courseModal) courseModal.classList.add("open");
+}
+
+async function deleteCourse(courseId) {
+    if (!confirm("Sei sicuro di voler eliminare questo corso?")) return;
+
+    try {
+        const response = await fetch(`/api/courses/${courseId}`, { method: "DELETE" });
+        if (response.ok) {
+            showToast("Corso eliminato con successo!", "success");
+            loadAdminDashboard();
+            loadCoursesDropdown();
+            loadClientCoursesCards();
+        } else {
+            const err = await response.json();
+            showToast(err.detail || "Errore eliminazione corso", "error");
+        }
+    } catch (e) {
+        showToast("Errore di connessione al server", "error");
+    }
+}
+
+window.editCourseFromJSON = editCourseFromJSON;
+window.deleteCourse = deleteCourse;
+
+// --- ASSISTENZA DINAMICA PRENOTAZIONI CORSO E POSTI (RF11 & RF12) ---
+async function loadCoursesDropdown() {
+    try {
+        const response = await fetch("/api/courses");
+        const courses = await response.json();
+        cachedCoursesList = courses;
+        const optgroup = document.getElementById("bookingCoursesOptGroup");
+        if (!optgroup) return;
+        optgroup.innerHTML = "";
+
+        courses.forEach(c => {
+            const opt = document.createElement("option");
+            opt.value = `course:${c.id}`;
+            opt.textContent = `${c.name}`;
+            optgroup.appendChild(opt);
+        });
+    } catch (e) {}
+}
+
+const bookingServiceSelect = document.getElementById("bookingService");
+const bookingDateInput = document.getElementById("bookingDate");
+const bookingTimeSlotSelect = document.getElementById("bookingTimeSlot");
+const bookingCourseHint = document.getElementById("bookingCourseHint");
+
+function updateTimeSlotsForSelectedDateAndCourse() {
+    const serviceVal = bookingServiceSelect ? bookingServiceSelect.value : "";
+    if (!serviceVal || serviceVal.indexOf("course:") !== 0) {
+        if (bookingCourseHint) bookingCourseHint.style.display = "none";
+        return;
+    }
+
+    const courseId = serviceVal.split(":")[1];
+    const course = cachedCoursesList.find(c => c.id === courseId);
+    if (!course) return;
+
+    const ws = course.weekly_schedule || {};
+    
+    // 1. Renderizza l'avviso completo e formattato del palinsesto corso
+    if (bookingCourseHint) {
+        bookingCourseHint.style.display = "block";
+        let scheduleItems = "";
+        ALL_DAYS_CODES.forEach(dCode => {
+            if (ws[dCode] && ws[dCode].length > 0) {
+                scheduleItems += `<li><strong>${DAY_NAMES_IT_MAP[dCode]}</strong>: ${ws[dCode].join(', ')}</li>`;
+            }
+        });
+        bookingCourseHint.innerHTML = `
+            <div style="font-weight: 700; margin-bottom: 6px; color: #fff; font-size: 0.95rem;">
+                <i class="fa-solid fa-calendar-days" style="color: var(--primary-color); margin-right: 6px;"></i> Programmazione Orari Corso:
+            </div>
+            <ul style="margin: 0; padding-left: 20px; line-height: 1.6; font-size: 0.88rem;">
+                ${scheduleItems || '<li>Nessun orario definito</li>'}
+            </ul>
+        `;
+    }
+
+    // 2. Aggiorna lo slot orario in base alla data selezionata
+    const pickedDateStr = bookingDateInput ? bookingDateInput.value : "";
+    if (!pickedDateStr || !bookingTimeSlotSelect) return;
+
+    const dateParts = pickedDateStr.split("-");
+    const pickedDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
+    const dayCodes = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const pickedDayCode = dayCodes[pickedDate.getDay()];
+
+    const allowedSlots = ws[pickedDayCode] || [];
+
+    // Rigenera la tendina delle fasce orarie con solo quelle valide per quel giorno
+    bookingTimeSlotSelect.innerHTML = "";
+    if (allowedSlots.length === 0) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "Nessun corso in questo giorno";
+        bookingTimeSlotSelect.appendChild(opt);
+        showToast(`Attenzione: Il corso '${course.name}' non si svolge di ${DAY_NAMES_IT_MAP[pickedDayCode] || pickedDayCode}.`, "warning");
+    } else {
+        allowedSlots.forEach(slot => {
+            const opt = document.createElement("option");
+            opt.value = slot;
+            opt.textContent = slot;
+            bookingTimeSlotSelect.appendChild(opt);
+        });
+        bookingTimeSlotSelect.value = allowedSlots[0];
+    }
+}
+
+if (bookingServiceSelect) {
+    bookingServiceSelect.addEventListener("change", () => updateTimeSlotsForSelectedDateAndCourse());
+}
+
+if (bookingDateInput) {
+    bookingDateInput.addEventListener("change", () => updateTimeSlotsForSelectedDateAndCourse());
+}
+
+async function loadClientCoursesCards() {
+    const grid = document.getElementById("clientCoursesGrid");
+    if (!grid) return;
+
+    const filterDateInput = document.getElementById("courseFilterDate");
+    const todayStr = new Date().toISOString().split("T")[0];
+    
+    if (filterDateInput && !filterDateInput.value) {
+        filterDateInput.value = todayStr;
+        filterDateInput.min = todayStr;
+        filterDateInput.onchange = () => loadClientCoursesCards();
+    }
+
+    const targetDate = filterDateInput ? filterDateInput.value : todayStr;
+
+    try {
+        const response = await fetch(`/api/courses?date=${targetDate}`);
+        const courses = await response.json();
+        cachedCoursesList = courses;
+        grid.innerHTML = "";
+
+        if (courses.length === 0) {
+            grid.innerHTML = `<p class="text-muted">Nessun corso in programma per la data selezionata.</p>`;
+            return;
+        }
+
+        const dateParts = targetDate.split("-");
+        const pickedDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
+        const dayCodes = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const targetDayCode = dayCodes[pickedDate.getDay()];
+        const targetDayName = DAY_NAMES_IT_MAP[targetDayCode] || targetDayCode;
+
+        courses.forEach(c => {
+            const allowedBadges = (c.allowed_subscriptions || []).map(s => 
+                `<span class="badge badge-secondary" style="font-size: 0.75rem; text-transform: uppercase;">${s}</span>`
+            ).join(" ");
+
+            const slotAvail = c.slot_availabilities || {};
+            const slotsEntries = Object.entries(slotAvail);
+
+            let slotsHtml = "";
+            if (slotsEntries.length === 0) {
+                slotsHtml = `
+                    <div style="padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px; text-align: center; color: var(--text-muted); font-size: 0.85rem; border: 1px dashed rgba(255,255,255,0.1);">
+                        <i class="fa-solid fa-circle-info" style="margin-right: 4px;"></i> Non in programma per <strong>${targetDayName}</strong>
+                    </div>
+                `;
+            } else {
+                slotsHtml = slotsEntries.map(([slot, info]) => {
+                    const isFull = info.available_seats <= 0;
+                    return `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; margin-bottom: 8px;">
+                            <div>
+                                <div style="font-weight: 600; font-size: 0.88rem; color: #fff;">
+                                    <i class="fa-solid fa-clock" style="color: var(--info-color); margin-right: 4px;"></i> ${slot}
+                                </div>
+                                <div style="font-size: 0.8rem; margin-top: 2px;">
+                                    <span class="badge ${isFull ? 'badge-danger' : 'badge-success'}" style="font-size: 0.75rem; padding: 3px 8px;">
+                                        <i class="fa-solid ${isFull ? 'fa-user-slash' : 'fa-users'}" style="margin-right: 3px;"></i>
+                                        ${isFull ? 'Esaurito (0 posti)' : `${info.available_seats} / ${info.max_capacity} posti liberi`}
+                                    </span>
+                                </div>
+                            </div>
+                            <button class="btn ${isFull ? 'btn-secondary' : 'btn-primary'} btn-sm" ${isFull ? 'disabled' : ''} onclick="quickBookCourse('course:${c.id}', '${targetDate}', '${slot}')" style="padding: 6px 12px; font-size: 0.8rem;">
+                                <i class="fa-solid ${isFull ? 'fa-lock' : 'fa-calendar-check'}"></i> ${isFull ? 'Completo' : 'Prenota'}
+                            </button>
+                        </div>
+                    `;
+                }).join("");
+            }
+
+            const card = document.createElement("div");
+            card.className = "glass-card padding-20 course-card";
+            card.style.display = "flex";
+            card.style.flexDirection = "column";
+            card.style.justifyContent = "space-between";
+
+            card.innerHTML = `
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                        <h3 style="font-size: 1.15rem; font-weight: 700; color: #fff; margin: 0;">${c.name}</h3>
+                        <div>${allowedBadges}</div>
+                    </div>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">
+                        <i class="fa-solid fa-user-ninja" style="color: var(--primary-color);"></i> Istruttore: <strong>${c.trainer}</strong>
+                    </p>
+                </div>
+                <div>
+                    <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-bottom: 10px;">
+                        Disponibilità per ${targetDayName} (${targetDate}):
+                    </div>
+                    ${slotsHtml}
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+    } catch (e) {
+        console.error("Errore caricamento schede corsi", e);
+    }
+}
+
+function quickBookCourse(courseServiceVal, dateVal) {
+    const select = document.getElementById("bookingService");
+    const dateInput = document.getElementById("bookingDate");
+    
+    if (select) select.value = courseServiceVal;
+    if (dateInput) dateInput.value = dateVal;
+
+    updateTimeSlotsForSelectedDateAndCourse();
+
+    const bookingSection = document.querySelector(".client-booking-section");
+    if (bookingSection) {
+        bookingSection.scrollIntoView({ behavior: "smooth" });
+        showToast("Corso e data selezionati! Scegli l'orario e clicca su Conferma Prenotazione.", "info");
+    }
+}
+
+window.quickBookCourse = quickBookCourse;

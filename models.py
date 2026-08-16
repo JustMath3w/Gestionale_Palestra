@@ -1,3 +1,4 @@
+import json
 import uuid
 import random
 from sqlalchemy import Column, String, Float, Boolean, Integer, DateTime, ForeignKey
@@ -121,16 +122,68 @@ class MemberSubscription(Base):
         )
 
 
+DAYS_MAP = {0: "Mon", 1: "Tue", 2: "Wed", 3: "Thu", 4: "Fri", 5: "Sat", 6: "Sun"}
+DAY_SHORT_IT = {"Mon": "Lun", "Tue": "Mar", "Wed": "Mer", "Thu": "Gio", "Fri": "Ven", "Sat": "Sab", "Sun": "Dom"}
+DAY_NAMES_IT = {"Mon": "Lunedì", "Tue": "Martedì", "Wed": "Mercoledì", "Thu": "Giovedì", "Fri": "Venerdì", "Sat": "Sabato", "Sun": "Domenica"}
+
 class Course(Base):
     __tablename__ = "courses"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String, nullable=False)
     trainer = Column(String, nullable=False)
-    schedule = Column(String, nullable=False)  # e.g., "Lun, Mer 18:00"
+    days_str = Column(String, default="Mon,Wed")
+    time_slot = Column(String, default="18:00 - 19:00")
+    weekly_schedule_str = Column(String, default="{}")
     max_capacity = Column(Integer, nullable=False)
-    # Comma-separated list of allowed subscription ids (e.g., "premium,vip")
     allowed_subscriptions_str = Column(String, default="")
+
+    @property
+    def weekly_schedule(self):
+        if self.weekly_schedule_str:
+            try:
+                res = json.loads(self.weekly_schedule_str)
+                if isinstance(res, dict) and res:
+                    return res
+            except Exception:
+                pass
+        fallback = {}
+        for d in self.days:
+            fallback[d] = [self.time_slot] if self.time_slot else ["18:00 - 19:00"]
+        return fallback
+
+    @weekly_schedule.setter
+    def weekly_schedule(self, value):
+        if isinstance(value, dict):
+            self.weekly_schedule_str = json.dumps(value)
+        else:
+            self.weekly_schedule_str = "{}"
+
+    @property
+    def days(self):
+        ws = self.weekly_schedule
+        if ws:
+            return list(ws.keys())
+        return [d.strip() for d in self.days_str.split(",") if d.strip()] if self.days_str else []
+
+    @days.setter
+    def days(self, value):
+        self.days_str = ",".join(value) if value else ""
+
+    @property
+    def schedule(self):
+        ws = self.weekly_schedule
+        if ws:
+            parts = []
+            for d_code, slots in ws.items():
+                d_label = DAY_SHORT_IT.get(d_code, d_code)
+                slots_label = ", ".join(slots)
+                parts.append(f"{d_label}: {slots_label}")
+            return " | ".join(parts)
+        day_shorts = [DAY_SHORT_IT.get(d, d) for d in self.days]
+        days_label = ", ".join(day_shorts) if day_shorts else "Tutti i giorni"
+        slot_label = self.time_slot if self.time_slot else ""
+        return f"{days_label} {slot_label}".strip()
 
     @property
     def allowed_subscriptions(self):
@@ -147,6 +200,9 @@ class Course(Base):
             "id": self.id,
             "name": self.name,
             "trainer": self.trainer,
+            "weekly_schedule": self.weekly_schedule,
+            "days": self.days,
+            "time_slot": self.time_slot or "",
             "schedule": self.schedule,
             "max_capacity": self.max_capacity,
             "allowed_subscriptions": self.allowed_subscriptions
@@ -154,13 +210,24 @@ class Course(Base):
 
     @classmethod
     def from_dict(cls, data):
+        ws = data.get("weekly_schedule", {})
         obj = cls(
             id=data.get("id"),
             name=data.get("name"),
             trainer=data.get("trainer"),
-            schedule=data.get("schedule"),
-            max_capacity=data.get("max_capacity")
+            time_slot=data.get("time_slot", "18:00 - 19:00"),
+            max_capacity=data.get("max_capacity", 15)
         )
+        if ws and isinstance(ws, dict):
+            obj.weekly_schedule = ws
+            obj.days = list(ws.keys())
+        else:
+            days_val = data.get("days", ["Mon", "Wed"])
+            time_slot_val = data.get("time_slot", "18:00 - 19:00")
+            obj.weekly_schedule = {d: [time_slot_val] for d in (days_val if isinstance(days_val, list) else ["Mon", "Wed"])}
+            obj.days = days_val if isinstance(days_val, list) else [d.strip() for d in str(days_val).split(",") if d.strip()]
+            obj.time_slot = time_slot_val
+
         obj.allowed_subscriptions = data.get("allowed_subscriptions", [])
         return obj
 

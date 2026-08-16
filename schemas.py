@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 # --- Member Schemas ---
 class MemberBase(BaseModel):
@@ -67,7 +67,10 @@ class MemberSubscriptionResponse(BaseModel):
 class CourseBase(BaseModel):
     name: str
     trainer: str
-    schedule: str
+    weekly_schedule: Optional[Dict[str, List[str]]] = None
+    days: Optional[List[str]] = None
+    time_slot: Optional[str] = None
+    schedule: Optional[str] = None
     max_capacity: int
     allowed_subscriptions: List[str]
 
@@ -76,6 +79,9 @@ class CourseCreate(CourseBase):
 
 class CourseResponse(CourseBase):
     id: str
+    booked_count: Optional[int] = 0
+    available_seats: Optional[int] = None
+    slot_availabilities: Optional[Dict[str, Any]] = None
 
     class Config:
         from_attributes = True
