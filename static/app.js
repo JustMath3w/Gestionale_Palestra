@@ -1,3 +1,48 @@
+async function parseResponseError(response, defaultMsg = "Errore durante la richiesta") {
+    try {
+        const err = await response.json();
+        return err.detail || defaultMsg;
+    } catch (e) {
+        const txt = await response.text().catch(() => "");
+        return txt || defaultMsg;
+    }
+}
+
+async function populateSubscriptionCheckboxes(containerId, checkboxClass, selectedIds = null, filterType = "all") {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = "";
+
+    try {
+        const resp = await fetch("/api/subscriptions/types");
+        if (!resp.ok) return;
+        const subTypes = await resp.json();
+
+        subTypes.forEach(st => {
+            let isChecked = false;
+            if (Array.isArray(selectedIds)) {
+                isChecked = selectedIds.includes(st.id);
+            } else if (filterType === "course") {
+                const svcs = st.services || [];
+                isChecked = svcs.includes("corsi") || st.id.includes("vip");
+            } else if (filterType === "wellness") {
+                const svcs = st.services || [];
+                isChecked = svcs.includes("servizi") || st.id.includes("vip");
+            }
+
+            const label = document.createElement("label");
+            label.className = "checkbox-label";
+            label.style.cssText = "display: flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: normal; cursor: pointer; color: #e2e8f0; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 5px 8px; border-radius: 6px;";
+            label.innerHTML = `
+                <input type="checkbox" class="${checkboxClass}" value="${st.id}" ${isChecked ? 'checked' : ''}> ${st.name}
+            `;
+            container.appendChild(label);
+        });
+    } catch (e) {
+        console.error("Errore caricamento tipi abbonamento per checkbox", e);
+    }
+}
+
 
 function renderAdminScheduleCell(weeklyScheduleObj) {
     if (!weeklyScheduleObj || Object.keys(weeklyScheduleObj).length === 0) {
@@ -384,8 +429,8 @@ async function cancelActiveSubscription() {
         });
 
         if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.detail || "Errore disdetta abbonamento");
+            const detail = await parseResponseError(response, "Errore disdetta abbonamento");
+            throw new Error(detail);
         }
 
         showToast("Abbonamento disdetto con successo!", "success");
@@ -453,8 +498,8 @@ async function purchaseSubscription(planId) {
         });
 
         if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.detail || "Errore acquisto abbonamento");
+            const detail = await parseResponseError(response, "Errore acquisto abbonamento");
+            throw new Error(detail);
         }
 
         showToast("Abbonamento acquistato con successo!", "success");
@@ -505,8 +550,8 @@ document.getElementById("submitBookingBtn").addEventListener("click", async () =
         });
 
         if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.detail || "Errore di prenotazione");
+            const detail = await parseResponseError(response, "Errore di prenotazione");
+            throw new Error(detail);
         }
 
         showToast("Prenotazione salvata con successo!", "success");
@@ -530,18 +575,44 @@ async function loadClientBookings() {
             return;
         }
 
-        // Carichiamo anche i corsi per mappare i nomi
-        const coursesResp = await fetch("/api/courses");
-        const courses = await coursesResp.json();
+        // Carichiamo corsi e servizi benessere per risolverne i nomi leggibili
+        const [coursesResp, wellnessResp] = await Promise.all([
+            fetch("/api/courses").catch(() => null),
+            fetch("/api/wellness-services").catch(() => null)
+        ]);
+        const courses = coursesResp && coursesResp.ok ? await coursesResp.json() : [];
+        const wellnessServices = wellnessResp && wellnessResp.ok ? await wellnessResp.json() : [];
 
         bookings.forEach(b => {
             let serviceName = b.service_type;
-            if (b.service_type === "sauna") serviceName = "Sauna Relax 🧖‍♂️";
-            else if (b.service_type === "massage_chair") serviceName = "Poltrona Massaggio 🪑";
-            else if (b.service_type.startsWith("course:")) {
+
+            if (b.service_type.startsWith("course:")) {
                 const cId = b.service_type.split(":")[1];
                 const c = courses.find(item => item.id === cId);
-                serviceName = c ? `${c.name} 🏋️‍♂️` : "Corso Gruppo";
+                serviceName = c ? c.name : "Corso Gruppo";
+            } else if (b.service_type.startsWith("wellness:")) {
+                const wId = b.service_type.split(":")[1];
+                const w = wellnessServices.find(item => item.id === wId);
+                if (w) {
+                    serviceName = w.name;
+                } else if (wId === "sauna") {
+                    serviceName = "Sauna Relax & Idromassaggio";
+                } else if (wId === "massage_chair") {
+                    serviceName = "Poltrona Massaggiante Shiatsu";
+                } else {
+                    serviceName = wId.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+                }
+            } else {
+                const w = wellnessServices.find(item => item.id === b.service_type);
+                if (w) {
+                    serviceName = w.name;
+                } else if (b.service_type === "sauna") {
+                    serviceName = "Sauna Relax & Idromassaggio";
+                } else if (b.service_type === "massage_chair") {
+                    serviceName = "Poltrona Massaggiante Shiatsu";
+                } else {
+                    serviceName = b.service_type.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+                }
             }
 
             const tr = document.createElement("tr");
@@ -627,8 +698,8 @@ async function buyProduct(productId) {
         });
 
         if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.detail || "Errore di acquisto");
+            const detail = await parseResponseError(response, "Errore di acquisto");
+            throw new Error(detail);
         }
 
         showToast("Prodotto acquistato! Credito scalato.", "success");
@@ -1049,11 +1120,10 @@ if (openAddSubBtn) {
         document.getElementById("subTypePrice").value = "";
         document.getElementById("subTypeDuration").value = "";
         
-        // Deseleziona tutti i servizi
-        document.getElementById("srvSalaPesi").checked = false;
+        // Resetta i 4 servizi inclusi
+        document.getElementById("srvSalaPesi").checked = true;
         document.getElementById("srvCorsi").checked = false;
-        document.getElementById("srvSauna").checked = false;
-        document.getElementById("srvPoltrona").checked = false;
+        document.getElementById("srvServizi").checked = false;
         document.getElementById("srvBevande").checked = false;
 
         subTypeModal.classList.add("open");
@@ -1078,12 +1148,11 @@ if (confirmSubTypeBtn) {
             return;
         }
 
-        // Costruisci l'elenco dei servizi selezionati
+        // Costruisci l'elenco dei 4 servizi selezionati
         const services = [];
         if (document.getElementById("srvSalaPesi").checked) services.push("sala_pesi");
         if (document.getElementById("srvCorsi").checked) services.push("corsi");
-        if (document.getElementById("srvSauna").checked) services.push("sauna");
-        if (document.getElementById("srvPoltrona").checked) services.push("poltrona_massaggio");
+        if (document.getElementById("srvServizi").checked) services.push("servizi");
         if (document.getElementById("srvBevande").checked) services.push("bevande");
 
         const payload = {
@@ -1134,7 +1203,18 @@ async function loadAdminSubTypesTable() {
                 <td><strong>${st.name}</strong></td>
                 <td>${st.price.toFixed(2)} €</td>
                 <td>${st.duration_days} giorni</td>
-                <td>${st.services.map(s => `<span class="badge badge-secondary" style="font-size: 0.7rem; margin-right: 2px;">${s}</span>`).join('') || 'Nessuno'}</td>
+                <td>${(st.services || []).map(s => {
+                    const labelMap = {
+                        "sala_pesi": "Sala Pesi",
+                        "corsi": "Corsi",
+                        "servizi": "Servizi",
+                        "sauna": "Servizi",
+                        "massage_chair": "Servizi",
+                        "poltrona_massaggio": "Servizi",
+                        "bevande": "Bevande Gratis"
+                    };
+                    return `<span class="badge badge-info" style="font-size: 0.7rem; margin-right: 3px;">${labelMap[s] || s}</span>`;
+                }).join('') || 'Nessuno'}</td>
                 <td>
                     <button class="btn btn-secondary btn-sm" onclick="editSubType('${st.id}', '${st.name.replace(/'/g, "\\'")}', ${st.price}, ${st.duration_days}, '${st.services.join(',')}')" title="Modifica">
                         <i class="fa-solid fa-pen"></i> Modifica
@@ -1166,8 +1246,7 @@ function editSubType(id, name, price, duration, servicesStr) {
     const services = servicesStr ? servicesStr.split(',') : [];
     document.getElementById("srvSalaPesi").checked = services.includes("sala_pesi");
     document.getElementById("srvCorsi").checked = services.includes("corsi");
-    document.getElementById("srvSauna").checked = services.includes("sauna");
-    document.getElementById("srvPoltrona").checked = services.includes("poltrona_massaggio");
+    document.getElementById("srvServizi").checked = services.includes("servizi") || services.includes("sauna") || services.includes("massage_chair") || services.includes("poltrona_massaggio");
     document.getElementById("srvBevande").checked = services.includes("bevande");
 
     subTypeModal.classList.add("open");
@@ -1751,9 +1830,7 @@ if (openAddCourseBtn) {
         document.getElementById("courseTrainer").value = "";
         document.getElementById("courseCapacity").value = "15";
 
-        document.getElementById("crsSubBasic").checked = false;
-        document.getElementById("crsSubPremium").checked = true;
-        document.getElementById("crsSubVip").checked = true;
+        populateSubscriptionCheckboxes("courseAllowedSubsContainer", "crs-sub-cb", null, "course");
 
         renderWeeklyScheduleConfig({
             "Mon": ["18:00 - 19:00"],
@@ -1793,10 +1870,7 @@ if (confirmCourseBtn) {
             return;
         }
 
-        const allowed_subscriptions = [];
-        if (document.getElementById("crsSubBasic").checked) allowed_subscriptions.push("basic");
-        if (document.getElementById("crsSubPremium").checked) allowed_subscriptions.push("premium");
-        if (document.getElementById("crsSubVip").checked) allowed_subscriptions.push("vip");
+        const allowed_subscriptions = Array.from(document.querySelectorAll(".crs-sub-cb:checked")).map(cb => cb.value);
 
         const payload = {
             name,
@@ -1877,9 +1951,7 @@ function editCourseFromJSON(encodedJson) {
     document.getElementById("courseCapacity").value = c.max_capacity;
 
     const subs = c.allowed_subscriptions || [];
-    document.getElementById("crsSubBasic").checked = subs.includes("basic");
-    document.getElementById("crsSubPremium").checked = subs.includes("premium");
-    document.getElementById("crsSubVip").checked = subs.includes("vip");
+    populateSubscriptionCheckboxes("courseAllowedSubsContainer", "crs-sub-cb", subs);
 
     renderWeeklyScheduleConfig(c.weekly_schedule || {});
 
@@ -2180,9 +2252,7 @@ if (openAddWellnessBtn) {
         document.getElementById("wellnessPrice").value = "10.00";
         document.getElementById("wellnessCapacity").value = "4";
 
-        document.getElementById("wlnSubBasic").checked = false;
-        document.getElementById("wlnSubPremium").checked = false;
-        document.getElementById("wlnSubVip").checked = true;
+        populateSubscriptionCheckboxes("wellnessFreeSubsContainer", "wln-sub-cb", null, "wellness");
 
         const defaultSlots = [
             "08:00 - 09:00", "09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00",
@@ -2227,10 +2297,7 @@ if (confirmWellnessBtn) {
             return;
         }
 
-        const free_for_subscriptions = [];
-        if (document.getElementById("wlnSubBasic").checked) free_for_subscriptions.push("basic");
-        if (document.getElementById("wlnSubPremium").checked) free_for_subscriptions.push("premium");
-        if (document.getElementById("wlnSubVip").checked) free_for_subscriptions.push("vip");
+        const free_for_subscriptions = Array.from(document.querySelectorAll(".wln-sub-cb:checked")).map(cb => cb.value);
 
         const payload = {
             name,
@@ -2308,9 +2375,7 @@ function editWellnessFromJSON(encodedJson) {
     document.getElementById("wellnessCapacity").value = s.max_capacity;
 
     const freeSubs = s.free_for_subscriptions || [];
-    document.getElementById("wlnSubBasic").checked = freeSubs.includes("basic");
-    document.getElementById("wlnSubPremium").checked = freeSubs.includes("premium");
-    document.getElementById("wlnSubVip").checked = freeSubs.includes("vip");
+    populateSubscriptionCheckboxes("wellnessFreeSubsContainer", "wln-sub-cb", freeSubs);
 
     renderWellnessScheduleConfig(s.weekly_schedule || {});
 

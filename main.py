@@ -359,6 +359,8 @@ def book_service(booking_data: schemas.BookingCreate, uow: GymUnitOfWork = Depen
     
     active_sub = active_subs[0]
     sub_type = uow.subscription_types.get_by_id(active_sub.subscription_type_id)
+    sub_services = (sub_type.services if sub_type else []) or []
+    sub_type_id = sub_type.id if sub_type else active_sub.subscription_type_id
     
     # Costo di prenotazione del servizio (default 0.0 per corsi, ma configurabile per servizi benessere)
     cost = 0.0
@@ -371,8 +373,16 @@ def book_service(booking_data: schemas.BookingCreate, uow: GymUnitOfWork = Depen
             raise HTTPException(status_code=404, detail="Corso non trovato.")
             
         # Verifica se il tipo di abbonamento consente l'accesso ai corsi
-        if "corsi" not in sub_type.services and "vip" not in sub_type.id:
-            raise HTTPException(status_code=403, detail="Il tuo abbonamento non include l'accesso ai corsi.")
+        has_corsi_service = ("corsi" in sub_services) or ("vip" in sub_type_id)
+        allowed_subs = course.allowed_subscriptions or []
+        
+        if allowed_subs:
+            is_sub_allowed = (sub_type_id in allowed_subs) or ("vip" in sub_type_id) or has_corsi_service
+            if not is_sub_allowed:
+                raise HTTPException(status_code=403, detail="Il tuo abbonamento non include l'accesso a questo corso.")
+        else:
+            if not has_corsi_service:
+                raise HTTPException(status_code=403, detail="Il tuo abbonamento non include l'accesso ai corsi.")
 
         # Verifica se la data prenotata corrisponde ai giorni di svolgimento del corso
         DAYS_MAP = {0: "Mon", 1: "Tue", 2: "Wed", 3: "Thu", 4: "Fri", 5: "Sat", 6: "Sun"}
@@ -468,7 +478,8 @@ def book_service(booking_data: schemas.BookingCreate, uow: GymUnitOfWork = Depen
                 raise HTTPException(status_code=400, detail="Hai già una prenotazione per questo servizio in questo slot.")
 
         free_subs = wellness_service.free_for_subscriptions or []
-        is_free = (sub_type.id in free_subs) or ("vip" in sub_type.id) or (wellness_service.id in sub_type.services)
+        sub_services = sub_type.services or []
+        is_free = (sub_type.id in free_subs) or ("vip" in sub_type.id) or (wellness_service.id in sub_services) or ("servizi" in sub_services) or ("sauna" in sub_services and wellness_service.id == "sauna") or ("massage_chair" in sub_services and wellness_service.id == "massage_chair")
         
         if not is_free:
             cost = wellness_service.price
@@ -535,11 +546,21 @@ def buy_product(purchase_req: schemas.PurchaseCreate, uow: GymUnitOfWork = Depen
     if product.stock <= 0:
         raise HTTPException(status_code=400, detail="Prodotto esaurito.")
         
-    if member.balance < product.price:
+    member_subs = uow.subscriptions.get_by_member_id(purchase_req.member_id)
+    active_subs = [s for s in member_subs if s.is_active]
+    final_price = product.price
+    if active_subs:
+        sub_type = uow.subscription_types.get_by_id(active_subs[0].subscription_type_id)
+        if sub_type:
+            sub_services = sub_type.services or []
+            if "bevande" in sub_services or "vip" in sub_type.id:
+                final_price = 0.0
+
+    if member.balance < final_price:
         raise HTTPException(status_code=400, detail="Credito insufficiente. Ricarica il portafoglio virtuale.")
         
     # Esegui transazione
-    member.balance -= product.price
+    member.balance -= final_price
     product.stock -= 1
     
     uow.members.save(member)
@@ -769,10 +790,62 @@ from typing import Optional
 def create_or_update_subscription_type(sub_data: schemas.SubscriptionTypeCreate, uow: GymUnitOfWork = Depends(get_uow)):
     sub_type = models.SubscriptionType.from_dict(sub_data.dict())
     saved = uow.subscription_types.save(sub_type)
+    
+    sub_services = saved.services or []
+    has_corsi = "corsi" in sub_services or "vip" in saved.id
+    has_servizi = "servizi" in sub_services or "vip" in saved.id
+
+    # Sincronizzazione bidirezionale per i Corsi
+    all_courses = uow.courses.get_all()
+    for course in all_courses:
+        allowed = course.allowed_subscriptions or []
+        if has_corsi:
+            if saved.id not in allowed:
+                allowed.append(saved.id)
+                course.allowed_subscriptions = allowed
+                uow.courses.save(course)
+        else:
+            if saved.id in allowed:
+                allowed.remove(saved.id)
+                course.allowed_subscriptions = allowed
+                uow.courses.save(course)
+
+    # Sincronizzazione bidirezionale per i Servizi Benessere
+    all_wellness = uow.wellness_services.get_all()
+    for service in all_wellness:
+        free_subs = service.free_for_subscriptions or []
+        if has_servizi:
+            if saved.id not in free_subs:
+                free_subs.append(saved.id)
+                service.free_for_subscriptions = free_subs
+                uow.wellness_services.save(service)
+        else:
+            if saved.id in free_subs:
+                free_subs.remove(saved.id)
+                service.free_for_subscriptions = free_subs
+                uow.wellness_services.save(service)
+
     return saved
 
 @app.delete("/api/subscriptions/types/{sub_type_id}", tags=["Abbonamenti (Admin)"])
 def delete_subscription_type(sub_type_id: str, uow: GymUnitOfWork = Depends(get_uow)):
+    # Rimuovi l'abbonamento eliminato da corsi e servizi benessere
+    all_courses = uow.courses.get_all()
+    for course in all_courses:
+        allowed = course.allowed_subscriptions or []
+        if sub_type_id in allowed:
+            allowed.remove(sub_type_id)
+            course.allowed_subscriptions = allowed
+            uow.courses.save(course)
+
+    all_wellness = uow.wellness_services.get_all()
+    for service in all_wellness:
+        free_subs = service.free_for_subscriptions or []
+        if sub_type_id in free_subs:
+            free_subs.remove(sub_type_id)
+            service.free_for_subscriptions = free_subs
+            uow.wellness_services.save(service)
+
     success = uow.subscription_types.delete(sub_type_id)
     if not success:
         raise HTTPException(status_code=404, detail="Tipo di abbonamento non trovato.")
