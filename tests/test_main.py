@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 import os
 import shutil
 import pytest
@@ -243,8 +244,14 @@ def test_wellness_services_management_and_booking():
     wellness_data = create_resp.json()
     service_id = wellness_data["id"]
 
-    # 2. Verifica disponibilita per un Lunedi (2026-08-17)
-    avail_mon = client.get("/api/wellness-services?date=2026-08-17").json()
+    today = datetime.now()
+    days_ahead = (0 - today.weekday() + 7) % 7
+    if days_ahead == 0:
+        days_ahead = 7
+    test_monday = (today + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
+
+    # 2. Verifica disponibilita per un Lunedi futuro
+    avail_mon = client.get(f"/api/wellness-services?date={test_monday}").json()
     solarium_mon = next(s for s in avail_mon if s["id"] == service_id)
     assert solarium_mon["slot_availabilities"]["10:00 - 11:00"]["available_seats"] == 1
 
@@ -267,7 +274,7 @@ def test_wellness_services_management_and_booking():
     book_resp = client.post("/api/bookings", json={
         "member_id": member_id,
         "service_type": f"wellness:{service_id}",
-        "booking_date": "2026-08-17",
+        "booking_date": test_monday,
         "time_slot": "10:00 - 11:00"
     })
     assert book_resp.status_code == 200
@@ -277,6 +284,75 @@ def test_wellness_services_management_and_booking():
     assert round(member_data["balance"], 2) == 8.01
 
     # 6. Verifica che lo slot sia ora esaurito (capienza max 1)
-    avail_after = client.get("/api/wellness-services?date=2026-08-17").json()
+    avail_after = client.get(f"/api/wellness-services?date={test_monday}").json()
     solarium_after = next(s for s in avail_after if s["id"] == service_id)
     assert solarium_after["slot_availabilities"]["10:00 - 11:00"]["available_seats"] == 0
+
+
+def test_custom_dynamic_subscription_type_permissions():
+    # 1. Admin crea un nuovo abbonamento "corsista" con servizio "corsi"
+    sub_payload = {
+        "id": "corsista",
+        "name": "Abbonamento Corsista Dedicated",
+        "price": 49.99,
+        "duration_days": 30,
+        "services": ["corsi"]
+    }
+    sub_resp = client.post("/api/subscriptions/types", json=sub_payload)
+    assert sub_resp.status_code == 200
+
+    # 2. Crea membro e assegna abbonamento corsista
+    reg_data = client.post("/api/auth/register", json={
+        "first_name": "Marco",
+        "last_name": "Corsista",
+        "email": "marco.corsista@example.com",
+        "password": "password123"
+    }).json()
+    member_id = reg_data["id"]
+
+    client.post(f"/api/members/{member_id}/recharge", json={"amount": 100.0})
+    client.post(f"/api/members/{member_id}/subscribe", json={
+        "member_id": member_id,
+        "subscription_type_id": "corsista",
+        "start_date": "2026-08-01"
+    })
+
+    # 3. Crea un corso e verifica che il membro corsista possa prenotare senza restrizioni
+    today = datetime.now()
+    days_ahead = (0 - today.weekday() + 7) % 7 or 7
+    next_mon = (today + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
+
+    course_payload = {
+        "name": "Spinning Pro",
+        "trainer": "Fabio",
+        "max_capacity": 10,
+        "allowed_subscriptions": ["corsista", "vip"],
+        "weekly_schedule": {
+            "Mon": ["18:00 - 19:00"]
+        }
+    }
+    c_resp = client.post("/api/courses", json=course_payload)
+    course_id = c_resp.json()["id"]
+
+    book_resp = client.post("/api/bookings", json={
+        "member_id": member_id,
+        "service_type": f"course:{course_id}",
+        "booking_date": next_mon,
+        "time_slot": "18:00 - 19:00"
+    })
+    assert book_resp.status_code == 200
+
+    # 4. Modifica l'abbonamento "corsista": rimuovi "corsi" ed aggiungi "servizi"
+    sub_payload_updated = {
+        "id": "corsista",
+        "name": "Abbonamento Corsista Dedicated",
+        "price": 49.99,
+        "duration_days": 30,
+        "services": ["servizi"]
+    }
+    client.post("/api/subscriptions/types", json=sub_payload_updated)
+
+    # Verifica che il corso "Spinning Pro" non contenga piu "corsista"
+    courses_list = client.get("/api/courses").json()
+    spinning = next(c for c in courses_list if c["id"] == course_id)
+    assert "corsista" not in spinning["allowed_subscriptions"]

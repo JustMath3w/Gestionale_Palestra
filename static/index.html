@@ -808,16 +808,8 @@
                     </div>
                     <div class="form-group">
                         <label>Abbonamenti con Accesso Gratuito</label>
-                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 6px;">
-                            <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
-                                <input type="checkbox" id="wlnSubBasic" value="basic"> Basic
-                            </label>
-                            <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
-                                <input type="checkbox" id="wlnSubPremium" value="premium"> Premium
-                            </label>
-                            <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
-                                <input type="checkbox" id="wlnSubVip" value="vip" checked> VIP
-                            </label>
+                        <div id="wellnessFreeSubsContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin-top: 6px;">
+                            <!-- Inseriti dinamicamente da JS -->
                         </div>
                     </div>
                     <div class="form-group margin-top-15">
@@ -870,16 +862,8 @@
                     </div>
                     <div class="form-group">
                         <label>Abbonamenti Abilitati all Accesso</label>
-                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px;">
-                            <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
-                                <input type="checkbox" id="crsSubBasic" value="basic"> Basic
-                            </label>
-                            <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
-                                <input type="checkbox" id="crsSubPremium" value="premium" checked> Premium
-                            </label>
-                            <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
-                                <input type="checkbox" id="crsSubVip" value="vip" checked> VIP
-                            </label>
+                        <div id="courseAllowedSubsContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin-top: 6px;">
+                            <!-- Inseriti dinamicamente da JS -->
                         </div>
                     </div>
                 </form>
@@ -925,13 +909,10 @@
                                 <input type="checkbox" id="srvSalaPesi" value="sala_pesi"> Sala Pesi
                             </label>
                             <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
-                                <input type="checkbox" id="srvCorsi" value="corsi"> Corsi di Gruppo
+                                <input type="checkbox" id="srvCorsi" value="corsi"> Corsi
                             </label>
                             <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
-                                <input type="checkbox" id="srvSauna" value="sauna"> Area Sauna
-                            </label>
-                            <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
-                                <input type="checkbox" id="srvPoltrona" value="poltrona_massaggio"> Poltrona Massaggiante
+                                <input type="checkbox" id="srvServizi" value="servizi"> Servizi
                             </label>
                             <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
                                 <input type="checkbox" id="srvBevande" value="bevande"> Bevande Gratis
@@ -1036,6 +1017,6 @@
     <div class="toast" id="toast">Notifica</div>
 
     <!-- Custom JS App -->
-    <script src="app.js?v=2.4"></script>
+    <script src="app.js?v=2.9"></script>
 </body>
 </html>
