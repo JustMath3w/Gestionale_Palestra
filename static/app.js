@@ -842,8 +842,11 @@ async function loadAdminDashboard() {
         const periodFilter = document.getElementById("affluencePeriodFilter");
         const periodWeeks = periodFilter ? periodFilter.value : "1";
         
+        const popFilter = document.getElementById("popularityPeriodFilter");
+        const popOffset = popFilter ? popFilter.value : "0";
+        
         // 1. Statistiche finanziarie e di gradimento
-        const response = await fetch(`/api/admin/stats?period_weeks=${periodWeeks}`);
+        const response = await fetch(`/api/admin/stats?period_weeks=${periodWeeks}&popularity_offset=${popOffset}`);
         const stats = await response.json();
 
         document.getElementById("statTotalRevenue").textContent = `${stats.financials.total.toFixed(2)} €`;
@@ -922,6 +925,14 @@ async function loadAdminDashboard() {
         if (periodFilter && !periodFilter.dataset.listenerAttached) {
             periodFilter.dataset.listenerAttached = "true";
             periodFilter.addEventListener("change", (e) => {
+                // Ricarica la dashboard per il nuovo periodo
+                loadAdminDashboard();
+            });
+        }
+        
+        if (popFilter && !popFilter.dataset.listenerAttached) {
+            popFilter.dataset.listenerAttached = "true";
+            popFilter.addEventListener("change", (e) => {
                 // Ricarica la dashboard per il nuovo periodo
                 loadAdminDashboard();
             });

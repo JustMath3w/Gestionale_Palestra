@@ -427,7 +427,14 @@
                             </div>
                         </div>
                         <div class="glass-card padding-20">
-                            <h3>Popolarità Attività e Corsi (Prenotazioni)</h3>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                <h3 style="margin: 0;">Popolarità Attività e Corsi (Prenotazioni)</h3>
+                                <select id="popularityPeriodFilter" class="form-control" style="width: auto;">
+                                    <option value="-1">Scorsa settimana</option>
+                                    <option value="0" selected>Questa settimana</option>
+                                    <option value="1">Prossima settimana</option>
+                                </select>
+                            </div>
                             <div class="chart-container">
                                 <canvas id="popularityChart"></canvas>
                             </div>

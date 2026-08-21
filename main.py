@@ -698,7 +698,7 @@ def get_access_logs(uow: GymUnitOfWork = Depends(get_uow)):
 
 
 @app.get("/api/admin/stats", tags=["Statistiche & Log (Admin)"])
-def get_gym_statistics(period_weeks: int = 1, uow: GymUnitOfWork = Depends(get_uow)):
+def get_gym_statistics(period_weeks: int = 1, popularity_offset: int = 0, uow: GymUnitOfWork = Depends(get_uow)):
     # 1. Entrate per Categoria
     revenue_subscriptions = 0.0
     revenue_bar = 0.0
@@ -727,6 +727,9 @@ def get_gym_statistics(period_weeks: int = 1, uow: GymUnitOfWork = Depends(get_u
     current_monday = today - timedelta(days=today.weekday())
     target_start = current_monday - timedelta(weeks=period_weeks - 1)
     target_end = current_monday + timedelta(days=6)
+    
+    pop_start = current_monday + timedelta(weeks=popularity_offset)
+    pop_end = pop_start + timedelta(days=6)
     
     week_range_str = f"{target_start.strftime('%d/%m/%Y')} - {target_end.strftime('%d/%m/%Y')}"
     
@@ -808,7 +811,7 @@ def get_gym_statistics(period_weeks: int = 1, uow: GymUnitOfWork = Depends(get_u
             except ValueError:
                 continue
                 
-        if target_start <= b_date <= target_end:
+        if pop_start <= b_date <= pop_end:
             if b.service_type == "sauna":
                 # Fallback vecchi record
                 name = "Sauna Relax & Idromassaggio"
