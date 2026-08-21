@@ -46,8 +46,29 @@ function showToast(message, type = "info") {
     toast.className = `toast show ${type}`;
     setTimeout(() => {
         toast.className = "toast";
-    }, 4000);
+    }, 3000);
 }
+
+// CUSTOM CONFIRM MODAL HELPER
+let currentConfirmAction = null;
+
+function customConfirm(message, actionCallback) {
+    document.getElementById("confirmModalMessage").textContent = message;
+    currentConfirmAction = actionCallback;
+    document.getElementById("confirmModal").classList.add("open");
+}
+
+function closeConfirmModal() {
+    document.getElementById("confirmModal").classList.remove("open");
+    currentConfirmAction = null;
+}
+
+document.getElementById("confirmModalActionBtn").addEventListener("click", () => {
+    if (currentConfirmAction) {
+        currentConfirmAction();
+    }
+    closeConfirmModal();
+});
 
 // ==========================================
 // AUTH FLOW & LOGIN/REGISTER FORM HANDLERS
@@ -326,7 +347,7 @@ async function loadClientDashboard() {
             icon.style.color = "var(--success-color)";
             
             // Collega l'evento di disdetta
-            document.getElementById("cancelActiveSubBtn").addEventListener("click", cancelActiveSubscription);
+            document.getElementById("cancelActiveSubBtn").addEventListener("click", cancelSubscription);
         } else {
             nameText.textContent = "Nessuno";
             dateText.textContent = "Sottoscrivi un abbonamento per accedere";
@@ -374,25 +395,23 @@ async function loadClientDashboard() {
 }
 
 // Disdici Abbonamento Attivo
-async function cancelActiveSubscription() {
-    if (!currentMember) return;
-    if (!confirm("Sei sicuro di voler disdire il tuo abbonamento attivo? Non potrai più effettuare il check-in finché non ne acquisterai uno nuovo.")) return;
-
-    try {
-        const response = await fetch(`/api/members/${currentMember.id}/subscriptions/cancel`, {
-            method: "POST"
-        });
-
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.detail || "Errore disdetta abbonamento");
+async function cancelSubscription() {
+    customConfirm("Sei sicuro di voler disdire il tuo abbonamento attivo? Non potrai più effettuare il check-in finché non ne acquisterai uno nuovo.", async () => {
+        try {
+            const response = await fetch(`/api/members/${currentMember.id}/subscriptions/cancel`, {
+                method: "POST"
+            });
+            if (response.ok) {
+                showToast("Abbonamento disdetto con successo!", "success");
+                loadClientDashboard();
+            } else {
+                const err = await response.json();
+                showToast(err.detail || "Errore durante la disdetta.", "error");
+            }
+        } catch (e) {
+            showToast("Errore di connessione al server.", "error");
         }
-
-        showToast("Abbonamento disdetto con successo!", "success");
-        loadClientDashboard();
-    } catch (err) {
-        showToast(err.message, "error");
-    }
+    });
 }
 
 // Carica listino abbonamenti
@@ -562,18 +581,19 @@ async function loadClientBookings() {
 }
 
 async function cancelBooking(bookingId) {
-    if (!confirm("Sei sicuro di voler cancellare questa prenotazione? Eventuali rimborsi saranno accreditati sul portafoglio.")) return;
-    try {
-        const response = await fetch(`/api/bookings/${bookingId}`, {
-            method: "DELETE"
-        });
-        if (response.ok) {
-            showToast("Prenotazione rimossa con successo", "success");
-            loadClientDashboard();
-        } else {
-            showToast("Errore durante la rimozione", "error");
-        }
-    } catch (e) {}
+    customConfirm("Sei sicuro di voler cancellare questa prenotazione? Eventuali rimborsi saranno accreditati sul portafoglio.", async () => {
+        try {
+            const response = await fetch(`/api/bookings/${bookingId}`, {
+                method: "DELETE"
+            });
+            if (response.ok) {
+                showToast("Prenotazione rimossa con successo", "success");
+                loadClientDashboard();
+            } else {
+                showToast("Errore durante la rimozione", "error");
+            }
+        } catch (e) {}
+    });
 }
 
 // Carica prodotti smart bar
@@ -747,8 +767,11 @@ confirmProfileBtn.addEventListener("click", async () => {
 
 async function loadAdminDashboard() {
     try {
+        const periodFilter = document.getElementById("affluencePeriodFilter");
+        const periodWeeks = periodFilter ? periodFilter.value : "1";
+        
         // 1. Statistiche finanziarie e di gradimento
-        const response = await fetch("/api/admin/stats");
+        const response = await fetch(`/api/admin/stats?period_weeks=${periodWeeks}`);
         const stats = await response.json();
 
         document.getElementById("statTotalRevenue").textContent = `${stats.financials.total.toFixed(2)} €`;
@@ -757,16 +780,79 @@ async function loadAdminDashboard() {
         document.getElementById("statServicesRevenue").textContent = `${stats.financials.services.toFixed(2)} €`;
 
         // Inizializza o aggiorna Grafico Affluenza
-        initAffluenceChart(stats.affluence, stats.affluence_totals);
+        window.currentAffluenceData = stats.affluence;
+        window.currentAffluenceTotals = stats.affluence_totals;
         
-        // Aggiorna fasce orarie di punta
-        const peakTextEl = document.getElementById("peakHoursText");
-        if (peakTextEl) {
-            if (stats.peak_hours && stats.peak_hours.length > 0) {
-                peakTextEl.textContent = `Fasce orarie di punta: ${stats.peak_hours.join(", ")}`;
+        function updatePeakHoursText(dayData) {
+            const peakTextEl = document.getElementById("peakHoursText");
+            if (!peakTextEl) return;
+            if (!dayData) {
+                peakTextEl.textContent = "Fasce orarie di punta: Dati insufficienti";
+                return;
+            }
+            const sortedHours = Object.entries(dayData)
+                .filter(entry => entry[1] > 0)
+                .sort((a, b) => b[1] - a[1]);
+            
+            // Trova il valore del terzo picco (o l'ultimo disponibile se sono meno di 3)
+            let peakHours = [];
+            if (sortedHours.length > 0) {
+                const thresholdValue = sortedHours[Math.min(2, sortedHours.length - 1)][1];
+                // Includiamo tutti gli orari che hanno un valore >= alla soglia, ordinandoli cronologicamente
+                peakHours = sortedHours
+                    .filter(entry => entry[1] >= thresholdValue)
+                    .map(entry => entry[0])
+                    .sort();
+            }
+            
+            if (peakHours.length > 0) {
+                peakTextEl.textContent = `Fasce orarie di punta: ${peakHours.join(", ")}`;
             } else {
                 peakTextEl.textContent = "Fasce orarie di punta: Dati insufficienti";
             }
+        }
+        
+        const dayFilter = document.getElementById("affluenceDayFilter");
+        const selectedDay = dayFilter ? dayFilter.value : "all";
+        
+        function updateSelectedDatesText(dayVal) {
+            const selectedDatesText = document.getElementById("selectedDatesText");
+            if (selectedDatesText && stats.dates_by_filter) {
+                if (dayVal === "all") {
+                    selectedDatesText.textContent = `Date considerate: ${stats.week_range}`;
+                } else {
+                    const dates = stats.dates_by_filter[dayVal];
+                    selectedDatesText.textContent = `Date considerate: ${dates.join(", ")}`;
+                }
+            }
+        }
+        
+        const weekRangeText = document.getElementById("weekRangeText");
+        if (weekRangeText && stats.week_range) {
+            weekRangeText.textContent = `Periodo di riferimento: Dal ${stats.week_range.split(' - ')[0]} al ${stats.week_range.split(' - ')[1]}`;
+        }
+        
+        initAffluenceChart(window.currentAffluenceData[selectedDay], window.currentAffluenceTotals);
+        updatePeakHoursText(window.currentAffluenceData[selectedDay]);
+        updateSelectedDatesText(selectedDay);
+        
+        if (dayFilter && !dayFilter.dataset.listenerAttached) {
+            dayFilter.dataset.listenerAttached = "true";
+            dayFilter.addEventListener("change", (e) => {
+                if (window.currentAffluenceData) {
+                    initAffluenceChart(window.currentAffluenceData[e.target.value], window.currentAffluenceTotals);
+                    updatePeakHoursText(window.currentAffluenceData[e.target.value]);
+                    updateSelectedDatesText(e.target.value);
+                }
+            });
+        }
+        
+        if (periodFilter && !periodFilter.dataset.listenerAttached) {
+            periodFilter.dataset.listenerAttached = "true";
+            periodFilter.addEventListener("change", (e) => {
+                // Ricarica la dashboard per il nuovo periodo
+                loadAdminDashboard();
+            });
         }
 
         // Inizializza o aggiorna Grafico Popolarità
@@ -980,7 +1066,7 @@ async function loadAdminMembersTable() {
                     <button class="btn btn-secondary btn-sm" onclick="adminRecharge('${m.id}')" title="Ricarica Manuale">
                         <i class="fa-solid fa-money-bill-wave"></i> + Ricarica
                     </button>
-                    <button class="btn ${m.is_active ? 'btn-danger' : 'btn-success'} btn-sm" onclick="adminToggleStatus('${m.id}')" title="${m.is_active ? 'Sospendi Account' : 'Attiva Account'}">
+                    <button class="btn ${m.is_active ? 'btn-danger' : 'btn-success'} btn-sm" onclick="toggleAccountStatus('${m.id}')" title="${m.is_active ? 'Sospendi Account' : 'Attiva Account'}">
                         <i class="fa-solid ${m.is_active ? 'fa-user-slash' : 'fa-user-check'}"></i> ${m.is_active ? 'Sospendi' : 'Attiva'}
                     </button>
                 </td>
@@ -1014,20 +1100,18 @@ async function adminRecharge(memberId) {
     } catch (e) {}
 }
 
-async function adminToggleStatus(memberId) {
-    if (!confirm("Sei sicuro di voler modificare lo stato di attivazione di questo account?")) return;
-
-    try {
-        const response = await fetch(`/api/members/${memberId}/toggle-status`, {
-            method: "POST"
-        });
-        if (response.ok) {
-            showToast("Stato account aggiornato con successo!", "success");
-            loadAdminDashboard();
-        } else {
-            showToast("Impossibile modificare lo stato dell'account", "error");
-        }
-    } catch (e) {}
+async function toggleAccountStatus(memberId) {
+    customConfirm("Sei sicuro di voler modificare lo stato di attivazione di questo account?", async () => {
+        try {
+            const response = await fetch(`/api/members/${memberId}/toggle-status`, { method: "POST" });
+            if (response.ok) {
+                showToast("Stato account aggiornato con successo!", "success");
+                loadAdminDashboard();
+            } else {
+                showToast("Impossibile modificare lo stato dell'account", "error");
+            }
+        } catch (e) {}
+    });
 }
 
 
@@ -1175,23 +1259,20 @@ function editSubType(id, name, price, duration, servicesStr) {
 
 // Rimuovi tipologia di abbonamento (RF6 - Delete)
 async function deleteSubType(subTypeId) {
-    if (!confirm(`Sei sicuro di voler eliminare la tipologia di abbonamento '${subTypeId}'? Questa azione non può essere annullata.`)) return;
-
-    try {
-        const response = await fetch(`/api/subscriptions/types/${subTypeId}`, {
-            method: "DELETE"
-        });
-
-        if (response.ok) {
-            showToast("Tipologia abbonamento rimossa con successo!", "success");
-            loadAdminDashboard();
-        } else {
-            const err = await response.json();
-            showToast(err.detail || "Errore durante l'eliminazione", "error");
+    customConfirm(`Sei sicuro di voler eliminare la tipologia di abbonamento '${subTypeId}'? Questa azione non può essere annullata.`, async () => {
+        try {
+            const res = await fetch(`/api/subscriptions/types/${subTypeId}`, { method: "DELETE" });
+            if (res.ok) {
+                showToast("Tipologia abbonamento rimossa con successo!", "success");
+                loadAdminDashboard();
+            } else {
+                const err = await res.json();
+                showToast(err.detail || "Errore durante l'eliminazione", "error");
+            }
+        } catch (e) {
+            showToast("Errore di connessione al server", "error");
         }
-    } catch (e) {
-        showToast("Errore di connessione al server", "error");
-    }
+    });
 }
 
 // --- STORICO SOTTOSCRIZIONI (ADMIN) ---
@@ -1354,19 +1435,18 @@ if(document.getElementById("confirmProductBtn")) {
     });
 }
 
-window.deleteProduct = async function(id) {
-    if (!confirm("Sei sicuro di voler eliminare questo prodotto dal catalogo?")) return;
-    try {
-        const response = await fetch(`/api/products/${id}`, { method: "DELETE" });
-        if (response.ok) {
-            showToast("Prodotto rimosso con successo", "success");
-            loadAdminProductsTable();
-        } else {
-            showToast("Errore nell'eliminazione", "error");
-        }
-    } catch (e) {
-        showToast("Errore di connessione", "error");
-    }
+window.deleteProduct = async function(productId) {
+    customConfirm("Sei sicuro di voler eliminare questo prodotto dal catalogo?", async () => {
+        try {
+            const res = await fetch(`/api/products/${productId}`, { method: "DELETE" });
+            if (res.ok) {
+                showToast("Prodotto eliminato con successo", "success");
+                loadAdminProductsTable();
+            } else {
+                showToast("Impossibile eliminare il prodotto", "error");
+            }
+        } catch (e) {}
+    });
 }
 
 
@@ -1554,19 +1634,17 @@ async function submitStaff(e) {
 }
 
 async function deleteStaff(id) {
-    if (!confirm("Sei sicuro di voler rimuovere questo membro dello staff?")) return;
-    
-    try {
-        const response = await fetch(`/api/admin/staff/${id}`, { method: "DELETE" });
-        if (response.ok) {
-            showToast("Staff rimosso con successo", "success");
-            loadAdminStaffTable();
-        } else {
-            showToast("Errore nella rimozione dello staff", "error");
-        }
-    } catch (e) {
-        showToast("Errore di rete", "error");
-    }
+    customConfirm("Sei sicuro di voler rimuovere questo membro dello staff?", async () => {
+        try {
+            const res = await fetch(`/api/admin/staff/${id}`, { method: 'DELETE' });
+            if(res.ok) {
+                showToast("Staff rimosso", "success");
+                loadAdminStaffTable();
+            } else {
+                showToast("Errore eliminazione staff", "error");
+            }
+        } catch(e) {}
+    });
 }
 
 
@@ -1886,26 +1964,18 @@ function editCourseFromJSON(encodedJson) {
     if (courseModal) courseModal.classList.add("open");
 }
 
-async function deleteCourse(courseId) {
-    if (!confirm("Sei sicuro di voler eliminare questo corso?")) return;
-
-    try {
-        const response = await fetch(`/api/courses/${courseId}`, { method: "DELETE" });
-        if (response.ok) {
-            showToast("Corso eliminato con successo!", "success");
-            loadAdminDashboard();
-            loadCoursesDropdown();
-            initClientDatePicker();
-    loadClientCoursesCards();
-    loadClientWellnessCards();
-    loadWellnessDropdown();
-        } else {
-            const err = await response.json();
-            showToast(err.detail || "Errore eliminazione corso", "error");
-        }
-    } catch (e) {
-        showToast("Errore di connessione al server", "error");
-    }
+async function deleteCourse(id) {
+    customConfirm("Sei sicuro di voler eliminare questo corso?", async () => {
+        try {
+            const res = await fetch(`/api/courses/${id}`, { method: 'DELETE' });
+            if(res.ok) {
+                showToast("Corso eliminato", "success");
+                loadAdminDashboard();
+            } else {
+                showToast("Errore eliminazione corso", "error");
+            }
+        } catch(e) {}
+    });
 }
 
 window.editCourseFromJSON = editCourseFromJSON;
@@ -2287,7 +2357,7 @@ async function loadAdminWellnessTable() {
                     <button class="btn btn-secondary btn-sm" onclick="editWellnessFromJSON('${jsonStr}')" title="Modifica">
                         <i class="fa-solid fa-pen"></i> Modifica
                     </button>
-                    <button class="btn btn-danger btn-sm" onclick="deleteWellnessService('${s.id}')" title="Elimina">
+                    <button class="btn btn-danger btn-sm" onclick="deleteWellness('${s.id}')" title="Elimina">
                         <i class="fa-solid fa-trash"></i> Elimina
                     </button>
                 </td>
@@ -2318,22 +2388,22 @@ function editWellnessFromJSON(encodedJson) {
 }
 
 async function deleteWellnessService(serviceId) {
-    if (!confirm("Sei sicuro di voler eliminare questo servizio benessere?")) return;
-
-    try {
-        const response = await fetch(`/api/wellness-services/${serviceId}`, { method: "DELETE" });
-        if (response.ok) {
-            showToast("Servizio benessere eliminato con successo!", "success");
-            loadAdminDashboard();
-            loadWellnessDropdown();
-            loadClientWellnessCards();
-        } else {
-            const err = await response.json();
-            showToast(err.detail || "Errore eliminazione servizio", "error");
+    customConfirm("Sei sicuro di voler eliminare questo servizio benessere?", async () => {
+        try {
+            const response = await fetch(`/api/wellness-services/${serviceId}`, { method: "DELETE" });
+            if (response.ok) {
+                showToast("Servizio benessere eliminato con successo!", "success");
+                loadAdminDashboard();
+                loadWellnessDropdown();
+                loadClientWellnessCards();
+            } else {
+                const err = await response.json();
+                showToast(err.detail || "Errore eliminazione servizio", "error");
+            }
+        } catch (e) {
+            showToast("Errore di connessione al server", "error");
         }
-    } catch (e) {
-        showToast("Errore di connessione al server", "error");
-    }
+    });
 }
 
 window.editWellnessFromJSON = editWellnessFromJSON;

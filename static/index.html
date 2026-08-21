@@ -399,7 +399,28 @@
                     <!-- GRAFICI ANALYTICS -->
                     <div class="charts-grid">
                         <div class="glass-card padding-20">
-                            <h3>Media Affluenza Oraria (Check-in)</h3>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                                <h3 style="margin: 0;">Media Affluenza Oraria (Check-in)</h3>
+                                <div style="display: flex; gap: 10px;">
+                                    <select id="affluenceDayFilter" class="form-control" style="width: auto;">
+                                        <option value="all">Tutti i giorni</option>
+                                        <option value="0">Lunedì</option>
+                                        <option value="1">Martedì</option>
+                                        <option value="2">Mercoledì</option>
+                                        <option value="3">Giovedì</option>
+                                        <option value="4">Venerdì</option>
+                                        <option value="5">Sabato</option>
+                                        <option value="6">Domenica</option>
+                                    </select>
+                                    <select id="affluencePeriodFilter" class="form-control" style="width: auto;">
+                                        <option value="1">Ultima settimana</option>
+                                        <option value="2">Ultime 2 settimane</option>
+                                        <option value="3">Ultime 3 settimane</option>
+                                        <option value="4">Ultimo mese (4 sett.)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <p style="font-size: 0.9em; color: var(--text-muted); margin-bottom: 5px;" id="selectedDatesText">Date considerate: -</p>
                             <p style="font-size: 0.9em; color: var(--text-muted); margin-bottom: 10px;" id="peakHoursText">Fasce orarie di punta: -</p>
                             <div class="chart-container">
                                 <canvas id="affluenceChart"></canvas>
@@ -990,6 +1011,23 @@
                     </div>
                     <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 15px;">Salva Staff</button>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE DI CONFERMA -->
+    <div class="modal" id="confirmModal">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h2>Conferma Azione</h2>
+                <button class="modal-close" onclick="closeConfirmModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmModalMessage">Sei sicuro di voler procedere?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeConfirmModal()">Annulla</button>
+                <button class="btn btn-success" id="confirmModalActionBtn">Conferma</button>
             </div>
         </div>
     </div>
