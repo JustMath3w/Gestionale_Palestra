@@ -1025,15 +1025,33 @@ function initPopularityChart(popularityData) {
     const labels = [];
     const values = [];
 
+    // Funzione helper per accorciare i nomi troppo lunghi
+    function shortenLabel(name) {
+        if (!name) return "";
+        let lower = name.toLowerCase();
+        if (lower.includes("sauna")) return "Sauna";
+        if (lower.includes("poltrona")) return "Poltrona";
+        
+        let shortName = name.split(/&|-|\(/)[0].trim();
+        const words = shortName.split(/\s+/);
+        if (words.length > 2) {
+            shortName = words.slice(0, 2).join(" ");
+        }
+        if (shortName.length > 16) {
+            return shortName.substring(0, 14) + "...";
+        }
+        return shortName;
+    }
+
     // Servizi benessere
     for (const [serviceName, count] of Object.entries(popularityData.services)) {
-        labels.push(serviceName);
+        labels.push(shortenLabel(serviceName));
         values.push(count);
     }
 
     // Corsi
     for (const [courseName, count] of Object.entries(popularityData.courses)) {
-        labels.push(courseName);
+        labels.push(shortenLabel(courseName));
         values.push(count);
     }
 
