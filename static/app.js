@@ -1003,11 +1003,7 @@ function initAffluenceChart(affluenceData, affluenceTotals) {
                             if (context.parsed.y !== null) {
                                 label += context.parsed.y;
                             }
-                            if (affluenceTotals) {
-                                const hourKey = context.label;
-                                const total = affluenceTotals[hourKey] || 0;
-                                label += ` (Totale complessivo: ${total})`;
-                            }
+
                             return label;
                         }
                     }
