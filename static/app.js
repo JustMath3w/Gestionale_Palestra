@@ -2453,7 +2453,7 @@ async function loadAdminWellnessTable() {
                     <button class="btn btn-secondary btn-sm" onclick="editWellnessFromJSON('${jsonStr}')" title="Modifica">
                         <i class="fa-solid fa-pen"></i> Modifica
                     </button>
-                    <button class="btn btn-danger btn-sm" onclick="deleteWellness('${s.id}')" title="Elimina">
+                    <button class="btn btn-danger btn-sm" onclick="deleteWellnessService('${s.id}')" title="Elimina">
                         <i class="fa-solid fa-trash"></i> Elimina
                     </button>
                 </td>
