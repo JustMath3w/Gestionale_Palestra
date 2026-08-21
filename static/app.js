@@ -1107,8 +1107,9 @@ function renderPopularityRanking(popularityData) {
     const items = [];
     
     // Aggiungi servizi
-    items.push({ name: "Sauna Relax", type: "Servizio Benessere", count: popularityData.services.sauna || 0 });
-    items.push({ name: "Poltrona Massaggio", type: "Servizio Benessere", count: popularityData.services.massage_chair || 0 });
+    for (const [serviceName, count] of Object.entries(popularityData.services)) {
+        items.push({ name: serviceName, type: "Servizio Benessere", count: count });
+    }
     
     // Aggiungi corsi
     for (const [courseName, count] of Object.entries(popularityData.courses)) {
