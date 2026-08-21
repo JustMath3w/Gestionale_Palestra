@@ -1025,9 +1025,11 @@ function initPopularityChart(popularityData) {
     const labels = [];
     const values = [];
 
-    // Mappatura nomi servizi benessere
-    labels.push("Sauna", "Poltrona Massaggio");
-    values.push(popularityData.services.sauna || 0, popularityData.services.massage_chair || 0);
+    // Servizi benessere
+    for (const [serviceName, count] of Object.entries(popularityData.services)) {
+        labels.push(serviceName);
+        values.push(count);
+    }
 
     // Corsi
     for (const [courseName, count] of Object.entries(popularityData.courses)) {

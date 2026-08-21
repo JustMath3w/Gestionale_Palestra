@@ -788,23 +788,45 @@ def get_gym_statistics(period_weeks: int = 1, uow: GymUnitOfWork = Depends(get_u
     peak_hours = [hour for hour, avg in sorted_hours if avg > 0][:3]
 
     # 3. Servizi e Corsi più popolari
-    services_popularity = {"sauna": 0, "massage_chair": 0}
+    services_popularity = {}
     courses_popularity = {}
     
     # Inizializza nomi corsi
     for c in uow.courses.get_all():
         courses_popularity[c.name] = 0
         
+    # Inizializza nomi servizi benessere
+    for w in uow.wellness_services.get_all():
+        services_popularity[w.name] = 0
+        
     for b in all_bookings:
-        if b.service_type == "sauna":
-            services_popularity["sauna"] += 1
-        elif b.service_type == "massage_chair":
-            services_popularity["massage_chair"] += 1
-        elif b.service_type.startswith("course:"):
-            c_id = b.service_type.split(":")[1]
-            course = uow.courses.get_by_id(c_id)
-            if course:
-                courses_popularity[course.name] = courses_popularity.get(course.name, 0) + 1
+        try:
+            b_date = datetime.strptime(b.booking_date, "%d/%m/%Y").date()
+        except ValueError:
+            try:
+                b_date = datetime.strptime(b.booking_date, "%Y-%m-%d").date()
+            except ValueError:
+                continue
+                
+        if target_start <= b_date <= target_end:
+            if b.service_type == "sauna":
+                # Fallback vecchi record
+                name = "Sauna Relax & Idromassaggio"
+                services_popularity[name] = services_popularity.get(name, 0) + 1
+            elif b.service_type == "massage_chair":
+                # Fallback vecchi record
+                name = "Poltrona Massaggiante Shiatsu"
+                services_popularity[name] = services_popularity.get(name, 0) + 1
+            elif b.service_type.startswith("wellness:"):
+                w_id = b.service_type.split(":")[1]
+                ws = uow.wellness_services.get_by_id(w_id)
+                if ws:
+                    services_popularity[ws.name] = services_popularity.get(ws.name, 0) + 1
+            elif b.service_type.startswith("course:"):
+                c_id = b.service_type.split(":")[1]
+                course = uow.courses.get_by_id(c_id)
+                if course:
+                    courses_popularity[course.name] = courses_popularity.get(course.name, 0) + 1
 
     return {
         "financials": {
