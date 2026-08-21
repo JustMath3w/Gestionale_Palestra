@@ -931,6 +931,12 @@ def delete_course(course_id: str, uow: GymUnitOfWork = Depends(get_uow)):
     success = uow.courses.delete(course_id)
     if not success:
         raise HTTPException(status_code=404, detail="Corso non trovato.")
+        
+    # Rimuovi prenotazioni associate
+    for b in uow.bookings.get_all():
+        if b.service_type == f"course:{course_id}":
+            uow.bookings.delete(b.id)
+            
     return {"success": True, "message": "Corso rimosso con successo."}
 
 @app.post("/api/products", response_model=schemas.ProductResponse, tags=["Smart Bar (Admin)"])
@@ -1033,4 +1039,10 @@ def delete_wellness_service(service_id: str, uow: GymUnitOfWork = Depends(get_uo
     success = uow.wellness_services.delete(service_id)
     if not success:
         raise HTTPException(status_code=404, detail="Servizio benessere non trovato.")
+        
+    # Rimuovi prenotazioni associate
+    for b in uow.bookings.get_all():
+        if b.service_type == f"wellness:{service_id}":
+            uow.bookings.delete(b.id)
+            
     return {"success": True, "message": "Servizio benessere rimosso con successo."}
