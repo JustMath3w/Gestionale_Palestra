@@ -1,0 +1,106 @@
+                <div class="client-subtab-pane" id="client-activities" style="display:none;">
+                <!-- PRENOTAZIONE CORSI E SERVIZI -->
+                <div class="client-booking-section">
+                    <div class="booking-column">
+                        <div class="section-title-wrapper">
+                            <h2>Corsi e Servizi</h2>
+                            <p>Prenota corsi di gruppo, sauna o poltrona massaggiante.</p>
+                        </div>
+                        <div class="glass-card padding-20">
+                            <div class="form-group" style="width: 100%; margin-bottom: 15px;">
+                                <label for="bookingService" style="font-weight: 600; font-size: 0.95rem;">Servizio / Corso</label>
+                                <select id="bookingService" required style="width: 100%; min-height: 44px; font-size: 0.95rem; text-overflow: ellipsis; padding: 10px 14px; border-radius: 10px; background: rgba(255,255,255,0.06); color: #fff; border: 1px solid var(--border-color);">
+                                    <option value="">Seleziona un servizio o corso...</option>
+                                    <optgroup label="Servizi Benessere">
+                                        <option value="sauna">Sauna Relax (10.00€ - Gratis per VIP)</option>
+                                        <option value="massage_chair">Poltrona Massaggiante (5.00€ - Gratis per VIP)</option>
+                                    </optgroup>
+                                    <optgroup label="Corsi di Gruppo" id="bookingCoursesOptGroup">
+                                        <!-- Corsi caricati dinamicamente -->
+                                    </optgroup>
+                                </select>
+                                <div id="bookingCourseHint" style="display:none; margin-top: 14px; padding: 14px 18px; border-radius: 12px; background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; font-size: 0.9rem; line-height: 1.6; width: 100%;"></div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="bookingDate">Data Prenotazione</label>
+                                    <input type="date" id="bookingDate" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="bookingTimeSlot">Fascia Oraria</label>
+                                    <select id="bookingTimeSlot" required>
+                                        <option value="09:00 - 10:00">09:00 - 10:00</option>
+                                        <option value="10:00 - 11:00">10:00 - 11:00</option>
+                                        <option value="11:00 - 12:00">11:00 - 12:00</option>
+                                        <option value="14:00 - 15:00">14:00 - 15:00</option>
+                                        <option value="15:00 - 16:00">15:00 - 16:00</option>
+                                        <option value="16:00 - 17:00">16:00 - 17:00</option>
+                                        <option value="18:00 - 19:00">18:00 - 19:00</option>
+                                        <option value="19:30 - 20:30">19:30 - 20:30</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary btn-full margin-top-10" id="submitBookingBtn">
+                                <i class="fa-solid fa-calendar-plus"></i> Conferma Prenotazione
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="booking-column">
+                        <div class="section-title-wrapper">
+                            <h2>Le mie Prenotazioni</h2>
+                            <p>Visualizza e gestisci le tue sessioni prenotate.</p>
+                        </div>
+                        <div class="glass-card padding-0 overflow-hidden">
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Servizio</th>
+                                            <th>Data</th>
+                                            <th>Orario</th>
+                                            <th>Costo</th>
+                                            <th>Azione</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="clientBookingsTable">
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted">Caricamento...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PALINSESTO CORSI E DISPONIBILITA POSTI (RF11 & RF12) -->
+                <div class="section-title-wrapper margin-top-40">
+                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <h2>Palinsesto Corsi Palestra</h2>
+                            <p>Consulta la programmazione dei corsi e verifica i posti disponibili in tempo reale per ciascun giorno.</p>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <label for="courseFilterDate" style="font-weight: 500; font-size: 0.9rem;">Data Selezionata:</label>
+                            <input type="date" id="courseFilterDate" style="padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(255,255,255,0.05); color: #fff;">
+                        </div>
+                    </div>
+                </div>
+                <div class="courses-cards-grid" id="clientCoursesGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-top: 15px; margin-bottom: 40px;">
+                    <!-- Caricato dinamicamente via JS -->
+                </div>
+
+                <!-- PALINSESTO SERVIZI BENESSERE (RF28) -->
+                <div class="section-title-wrapper margin-top-40">
+                    <h2>Servizi Benessere & Relax</h2>
+                    <p>Scopri i trattamenti benessere disponibili e verifica i posti liberi per ciascuna fascia oraria.</p>
+                </div>
+                <div class="courses-cards-grid" id="clientWellnessGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-top: 15px; margin-bottom: 40px;">
+                    <!-- Caricato dinamicamente via JS -->
+                </div>
+
+                </div>
+                </div>
+            </section>
+

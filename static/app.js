@@ -2679,3 +2679,55 @@ function formatScheduleDropdownHTML(weeklyScheduleObj) {
         </select>
     `;
 }
+
+// Switch Admin Tabs (Sub-tabs)
+function switchAdminTab(tabId) {
+    const panes = document.querySelectorAll('.admin-subtab-pane');
+    panes.forEach(pane => {
+        pane.style.display = 'none';
+        pane.classList.remove('active');
+    });
+
+    const buttons = document.querySelectorAll('.admin-subtab');
+    buttons.forEach(btn => {
+        btn.classList.remove('active');
+    });
+
+    const targetPane = document.getElementById(`admin-${tabId}`);
+    if (targetPane) {
+        targetPane.style.display = 'block';
+        targetPane.classList.add('active');
+    }
+
+    const targetBtn = document.querySelector(`.admin-subtab[onclick="switchAdminTab('${tabId}')"]`);
+    if (targetBtn) {
+        targetBtn.classList.add('active');
+    }
+}
+window.switchAdminTab = switchAdminTab;
+
+// Switch Client Tabs (Sub-tabs)
+function switchClientTab(tabId) {
+    const panes = document.querySelectorAll('.client-subtab-pane');
+    panes.forEach(pane => {
+        pane.style.display = 'none';
+        pane.classList.remove('active');
+    });
+
+    const buttons = document.querySelectorAll('.client-subtab');
+    buttons.forEach(btn => {
+        btn.classList.remove('active');
+    });
+
+    const targetPane = document.getElementById(`client-${tabId}`);
+    if (targetPane) {
+        targetPane.style.display = 'block';
+        targetPane.classList.add('active');
+    }
+
+    const targetBtn = document.querySelector(`.client-subtab[onclick="switchClientTab('${tabId}')"]`);
+    if (targetBtn) {
+        targetBtn.classList.add('active');
+    }
+}
+window.switchClientTab = switchClientTab;

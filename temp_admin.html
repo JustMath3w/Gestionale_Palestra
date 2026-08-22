@@ -1,0 +1,322 @@
+                <div id="adminDashboardContainer" class="hidden">
+                    <div class="admin-header">
+                        <div class="welcome-text" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <div>
+                                <h1>Pannello di Amministrazione</h1>
+                                <p>Visualizza i report finanziari, l'affluenza in tempo reale e gestisci i clienti registrati.</p>
+                            </div>
+                            <button class="btn btn-danger btn-sm" id="adminLogoutBtn">
+                                <i class="fa-solid fa-lock"></i> Esci Admin
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- REPORT FINANZIARI GENERALI -->
+                    <div class="stats-grid">
+                        <div class="glass-card admin-stat-card">
+                            <div class="stat-icon bg-purple"><i class="fa-solid fa-euro-sign"></i></div>
+                            <div class="stat-info">
+                                <span class="stat-label">Ricavi Totali</span>
+                                <span class="stat-value" id="statTotalRevenue">0.00 €</span>
+                            </div>
+                        </div>
+                        <div class="glass-card admin-stat-card">
+                            <div class="stat-icon bg-success"><i class="fa-solid fa-address-card"></i></div>
+                            <div class="stat-info">
+                                <span class="stat-label">Ricavi Abbonamenti</span>
+                                <span class="stat-value" id="statSubRevenue">0.00 €</span>
+                            </div>
+                        </div>
+                        <div class="glass-card admin-stat-card">
+                            <div class="stat-icon bg-info"><i class="fa-solid fa-mug-hot"></i></div>
+                            <div class="stat-info">
+                                <span class="stat-label">Ricavi Smart Bar</span>
+                                <span class="stat-value" id="statBarRevenue">0.00 €</span>
+                            </div>
+                        </div>
+                        <div class="glass-card admin-stat-card">
+                            <div class="stat-icon bg-warning"><i class="fa-solid fa-spa"></i></div>
+                            <div class="stat-info">
+                                <span class="stat-label">Ricavi Servizi Extra</span>
+                                <span class="stat-value" id="statServicesRevenue">0.00 €</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- GRAFICI ANALYTICS -->
+                    <div class="charts-grid">
+                        <div class="glass-card padding-20">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                                <h3 style="margin: 0;">Media Affluenza Oraria (Check-in)</h3>
+                                <div style="display: flex; gap: 10px;">
+                                    <select id="affluenceDayFilter" class="form-control" style="width: auto;">
+                                        <option value="all">Tutti i giorni</option>
+                                        <option value="0">Lunedì</option>
+                                        <option value="1">Martedì</option>
+                                        <option value="2">Mercoledì</option>
+                                        <option value="3">Giovedì</option>
+                                        <option value="4">Venerdì</option>
+                                        <option value="5">Sabato</option>
+                                        <option value="6">Domenica</option>
+                                    </select>
+                                    <select id="affluencePeriodFilter" class="form-control" style="width: auto;">
+                                        <option value="1">Ultima settimana</option>
+                                        <option value="2">Ultime 2 settimane</option>
+                                        <option value="3">Ultime 3 settimane</option>
+                                        <option value="4">Ultimo mese (4 sett.)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <p style="font-size: 0.9em; color: var(--text-muted); margin-bottom: 5px;" id="selectedDatesText">Date considerate: -</p>
+                            <p style="font-size: 0.9em; color: var(--text-muted); margin-bottom: 10px;" id="peakHoursText">Fasce orarie di punta: -</p>
+                            <div class="chart-container">
+                                <canvas id="affluenceChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="glass-card padding-20">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                <h3 style="margin: 0;">Popolarità Attività e Corsi (Prenotazioni)</h3>
+                                <select id="popularityPeriodFilter" class="form-control" style="width: auto;">
+                                    <option value="-1">Scorsa settimana</option>
+                                    <option value="0" selected>Questa settimana</option>
+                                    <option value="1">Prossima settimana</option>
+                                </select>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="popularityChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CLASSIFICA GRADIMENTO SERVIZI (RF26) -->
+                    <div class="section-title-wrapper margin-top-40">
+                        <h2>Classifica Gradimento Servizi (RF26)</h2>
+                        <p>Classifica dei corsi e dei servizi speciali più prenotati dai membri della palestra.</p>
+                    </div>
+                    <div class="glass-card padding-0 overflow-hidden" style="margin-bottom: 40px;">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Posizione</th>
+                                        <th>Nome Servizio/Corso</th>
+                                        <th>Tipologia</th>
+                                        <th>Prenotazioni Totali</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminPopularityTable">
+                                    <!-- Caricato dinamicamente via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- GESTIONE STAFF (RF27) -->
+                    <div class="section-title-wrapper margin-top-40" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h2>Gestione Staff (RF27)</h2>
+                            <p>Visualizza l'elenco dello staff abilitato all'accesso al pannello di amministrazione.</p>
+                        </div>
+                        <button class="btn btn-primary" onclick="openStaffModal()">+ Aggiungi Staff</button>
+                    </div>
+                    <div class="glass-card padding-0 overflow-hidden" style="margin-bottom: 40px;">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Username</th>
+                                        <th>Email</th>
+                                        <th>Ruolo</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminStaffTable">
+                                    <!-- Caricato dinamicamente via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- GESTIONE UTENTI -->
+                    <div class="section-title-wrapper">
+                        <h2>Anagrafica Utenti Palestra</h2>
+                        <p>Visualizza la lista degli utenti iscritti, gestisci il loro credito ed effettua azioni amministrative.</p>
+                    </div>
+                    <div class="glass-card padding-0 overflow-hidden">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Nome e Cognome</th>
+                                        <th>Email</th>
+                                        <th>Telefono</th>
+                                        <th>Credito Portafoglio</th>
+                                        <th>Stato Account</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminMembersTable">
+                                    <!-- Caricato dinamicamente via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- GESTIONE ABBONAMENTI (RF6) -->
+                    <div class="section-title-wrapper margin-top-40">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <div>
+                                <h2>Configurazione Abbonamenti (RF6)</h2>
+                                <p>Crea, modifica o rimuovi le tipologie di abbonamento offerte dalla palestra.</p>
+                            </div>
+                            <button class="btn btn-primary" id="openAddSubBtn">
+                                <i class="fa-solid fa-plus"></i> Nuovo Abbonamento
+                            </button>
+                        </div>
+                    </div>
+                    <div class="glass-card padding-0 overflow-hidden" style="margin-bottom: 40px;">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Codice ID</th>
+                                        <th>Nome Abbonamento</th>
+                                        <th>Prezzo (€)</th>
+                                        <th>Durata (Giorni)</th>
+                                        <th>Servizi Inclusi</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminSubTypesTable">
+                                    <!-- Caricato dinamicamente via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- GESTIONE CORSI (RF10) -->
+                    <div class="section-title-wrapper margin-top-40">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <div>
+                                <h2>Pianificazione & Gestione Corsi (RF10)</h2>
+                                <p>Crea, modifica o elimina i corsi collettivi (es. Pilates, Spinning, Crossfit).</p>
+                            </div>
+                            <button class="btn btn-primary" id="openAddCourseBtn">
+                                <i class="fa-solid fa-plus"></i> Nuovo Corso
+                            </button>
+                        </div>
+                    </div>
+                    <div class="glass-card padding-0 overflow-hidden" style="margin-bottom: 40px;">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Nome Corso</th>
+                                        <th>Istruttore</th>
+                                        <th>Giorni / Orario</th>
+                                        <th>Capacità Max</th>
+                                        <th>Abbonamento Minimo</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminCoursesTable">
+                                    <!-- Caricato dinamicamente via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- STORICO SOTTOSCRIZIONI -->
+                    <div class="section-title-wrapper margin-top-40">
+                        <h2>Storico Sottoscrizioni</h2>
+                        <p>Visualizza lo storico degli abbonamenti passati acquistati, raggruppati per membro.</p>
+                    </div>
+                    <div class="glass-card padding-0 overflow-hidden" style="margin-bottom: 40px; padding: 20px;">
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label for="historyMemberSelect"><strong>Seleziona un Membro</strong></label>
+                            <select class="form-control" id="historyMemberSelect" onchange="renderSubscriptionHistory(this.value)">
+                                <option value="">-- Seleziona Membro --</option>
+                            </select>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Nome Abbonamento</th>
+                                        <th>Data Inizio</th>
+                                        <th>Data Fine</th>
+                                        <th>Stato</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="subscriptionHistoryTableBody">
+                                    <tr><td colspan="4" style="text-align:center; padding: 20px;">Seleziona un membro per visualizzare lo storico.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- GESTIONE CATALOGO PRODOTTI (RF18) -->
+                    <div class="section-title-wrapper margin-top-40">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <div>
+                                <h2>Catalogo Prodotti (RF18)</h2>
+                                <p>Gestisci i prodotti acquistabili allo Smart Bar (bevande, snack, acqua).</p>
+                            </div>
+                            <button class="btn btn-primary" id="openAddProductBtn" onclick="openAddProductModal()">
+                                <i class="fa-solid fa-plus"></i> Nuovo Prodotto
+                            </button>
+                        </div>
+                    </div>
+                    <div class="glass-card padding-0 overflow-hidden" style="margin-bottom: 40px;">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Nome Prodotto</th>
+                                        <th>Prezzo (€)</th>
+                                        <th>Quantità (Magazzino)</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminProductsTable">
+                                    <!-- Caricato dinamicamente via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- GESTIONE SERVIZI BENESSERE (RF28) -->
+                    <div class="section-title-wrapper margin-top-40">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <div>
+                                <h2>Configurazione Servizi Benessere (RF28)</h2>
+                                <p>Crea, modifica o elimina i servizi benessere (es. Sauna, Poltrona Massaggiante, Jacuzzi).</p>
+                            </div>
+                            <button class="btn btn-primary" id="openAddWellnessBtn">
+                                <i class="fa-solid fa-plus"></i> Nuovo Servizio Benessere
+                            </button>
+                        </div>
+                    </div>
+                    <div class="glass-card padding-0 overflow-hidden" style="margin-bottom: 40px;">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Nome Servizio</th>
+                                        <th>Prezzo (€)</th>
+                                        <th>Capacità Max</th>
+                                        <th>Gratuito Per</th>
+                                        <th>Programmazione Orari</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminWellnessTable">
+                                    <!-- Caricato dinamicamente via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
