@@ -272,22 +272,36 @@ document.getElementById("adminLogoutBtn").addEventListener("click", () => {
 
 // Carica sessione al boot
 function initSession() {
-    const saved = sessionStorage.getItem("gym_member");
-    if (saved) {
-        try {
-            currentMember = JSON.parse(saved);
-            userWidgetName.textContent = `${currentMember.first_name} ${currentMember.last_name}`;
-            userWidgetRole.textContent = "Membro Palestra";
-            logoutBtn.style.display = "flex";
-        } catch (e) {
-            sessionStorage.removeItem("gym_member");
-        }
-    }
-    
-    const adminSaved = sessionStorage.getItem("gym_admin");
-    if (adminSaved === "true") {
-        isAdminLoggedIn = true;
-    }
+    // Pulisce qualsiasi sessione salvata per richiedere SEMPRE la password sia all'avvio che ad ogni refresh (Cmd+Shift+R)
+    localStorage.removeItem("gym_admin");
+    localStorage.removeItem("gym_member");
+    sessionStorage.removeItem("gym_admin");
+    sessionStorage.removeItem("gym_member");
+
+    currentMember = null;
+    isAdminLoggedIn = false;
+
+    if (typeof userWidgetName !== "undefined" && userWidgetName) userWidgetName.textContent = "Nessun utente";
+    if (typeof userWidgetRole !== "undefined" && userWidgetRole) userWidgetRole.textContent = "Visitatore";
+    if (typeof logoutBtn !== "undefined" && logoutBtn) logoutBtn.style.display = "none";
+
+    // Resetta l'interfaccia sulla schermata di login utente
+    const authSec = document.getElementById("authSection");
+    const tabCl = document.getElementById("tabClient");
+    const tabAd = document.getElementById("tabAdmin");
+    const tabTor = document.getElementById("tabTornello");
+
+    if (authSec) authSec.classList.remove("hidden");
+    if (tabCl) tabCl.style.display = "none";
+    if (tabAd) tabAd.style.display = "none";
+    if (tabTor) tabTor.style.display = "none";
+
+    const adminAuth = document.getElementById("adminAuthContainer");
+    const adminDash = document.getElementById("adminDashboardContainer");
+    if (adminAuth) adminAuth.classList.remove("hidden");
+    if (adminDash) adminDash.classList.add("hidden");
+
+    if (typeof setActiveNav === "function") setActiveNav("navClient");
 }
 
 // ==========================================

@@ -936,7 +936,7 @@ class GymUnitOfWork:
                 "name": "Abbonamento VIP (Tutto Incluso)",
                 "price": 79.99,
                 "duration_days": 30,
-                "services": ["sala_pesi", "corsi", "sauna", "massage_chair"]
+                "services": ["sala_pesi", "corsi", "servizi", "bevande"]
             }))
             
         # Prodotti bar di default
@@ -955,6 +955,26 @@ class GymUnitOfWork:
                 "schedule": "Lun, Mer 18:00 - 19:00",
                 "max_capacity": 15,
                 "allowed_subscriptions": ["premium", "vip"]
+            }))
+        # Servizi Benessere di default se vuoti
+        if not self.wellness_services.get_all():
+            default_slots = ["08:00 - 09:00", "09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00", "14:00 - 15:00", "15:00 - 16:00", "16:00 - 17:00", "18:00 - 19:00", "19:30 - 20:30"]
+            std_schedule = {d: default_slots for d in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]}
+            self.wellness_services.save(WellnessService.from_dict({
+                "id": "sauna",
+                "name": "Sauna Relax & Idromassaggio",
+                "price": 10.0,
+                "max_capacity": 4,
+                "free_for_subscriptions": ["vip"],
+                "weekly_schedule": std_schedule
+            }))
+            self.wellness_services.save(WellnessService.from_dict({
+                "id": "massage_chair",
+                "name": "Poltrona Massaggiante Shiatsu",
+                "price": 5.0,
+                "max_capacity": 1,
+                "free_for_subscriptions": ["vip"],
+                "weekly_schedule": std_schedule
             }))
             self.courses.save(Course.from_dict({
                 "id": "c2",
