@@ -191,7 +191,7 @@ document.getElementById("registerForm").addEventListener("submit", async (e) => 
 // Imposta utente corrente
 function setCurrentUser(member) {
     currentMember = member;
-    localStorage.setItem("gym_member", JSON.stringify(member));
+    sessionStorage.setItem("gym_member", JSON.stringify(member));
 
     // Aggiorna Sidebar Widget
     userWidgetName.textContent = `${member.first_name} ${member.last_name}`;
@@ -214,7 +214,7 @@ function setCurrentUser(member) {
 // Disconnetti utente (Membro)
 logoutBtn.addEventListener("click", () => {
     currentMember = null;
-    localStorage.removeItem("gym_member");
+    sessionStorage.removeItem("gym_member");
     
     userWidgetName.textContent = "Nessun utente";
     userWidgetRole.textContent = "Visitatore";
@@ -247,7 +247,7 @@ document.getElementById("adminLoginForm").addEventListener("submit", async (e) =
         }
 
         isAdminLoggedIn = true;
-        localStorage.setItem("gym_admin", "true");
+        sessionStorage.setItem("gym_admin", "true");
         
         document.getElementById("adminAuthContainer").classList.add("hidden");
         document.getElementById("adminDashboardContainer").classList.remove("hidden");
@@ -262,7 +262,7 @@ document.getElementById("adminLoginForm").addEventListener("submit", async (e) =
 // Admin Logout
 document.getElementById("adminLogoutBtn").addEventListener("click", () => {
     isAdminLoggedIn = false;
-    localStorage.removeItem("gym_admin");
+    sessionStorage.removeItem("gym_admin");
     
     document.getElementById("adminAuthContainer").classList.remove("hidden");
     document.getElementById("adminDashboardContainer").classList.add("hidden");
@@ -272,7 +272,7 @@ document.getElementById("adminLogoutBtn").addEventListener("click", () => {
 
 // Carica sessione al boot
 function initSession() {
-    const saved = localStorage.getItem("gym_member");
+    const saved = sessionStorage.getItem("gym_member");
     if (saved) {
         try {
             currentMember = JSON.parse(saved);
@@ -280,11 +280,11 @@ function initSession() {
             userWidgetRole.textContent = "Membro Palestra";
             logoutBtn.style.display = "flex";
         } catch (e) {
-            localStorage.removeItem("gym_member");
+            sessionStorage.removeItem("gym_member");
         }
     }
     
-    const adminSaved = localStorage.getItem("gym_admin");
+    const adminSaved = sessionStorage.getItem("gym_admin");
     if (adminSaved === "true") {
         isAdminLoggedIn = true;
     }
@@ -361,7 +361,7 @@ async function loadClientDashboard() {
         const response = await fetch(`/api/members/${currentMember.id}`);
         if (response.ok) {
             currentMember = await response.json();
-            localStorage.setItem("gym_member", JSON.stringify(currentMember));
+            sessionStorage.setItem("gym_member", JSON.stringify(currentMember));
         }
     } catch (e) {}
 
@@ -819,7 +819,7 @@ confirmProfileBtn.addEventListener("click", async () => {
         const updatedMember = await response.json();
         // Aggiorna lo stato locale
         currentMember = updatedMember;
-        localStorage.setItem("gym_member", JSON.stringify(currentMember));
+        sessionStorage.setItem("gym_member", JSON.stringify(currentMember));
         
         // Aggiorna il widget della sidebar
         userWidgetName.textContent = `${currentMember.first_name} ${currentMember.last_name}`;
