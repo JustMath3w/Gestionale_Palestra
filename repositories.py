@@ -619,6 +619,14 @@ class SQLiteMemberSubscriptionRepository(IMemberSubscriptionRepository):
             self.db.refresh(sub)
             return sub
 
+    def delete(self, id: str) -> bool:
+        sub = self.get_by_id(id)
+        if sub:
+            self.db.delete(sub)
+            self.db.commit()
+            return True
+        return False
+
 
 class SQLiteCourseRepository(ICourseRepository):
     def __init__(self, db: Session):
@@ -741,6 +749,14 @@ class SQLitePurchaseRepository(IPurchaseRepository):
             self.db.refresh(purchase)
             return purchase
 
+    def delete(self, id: str) -> bool:
+        purchase = self.get_by_id(id)
+        if purchase:
+            self.db.delete(purchase)
+            self.db.commit()
+            return True
+        return False
+
 
 class SQLiteAccessLogRepository(IAccessLogRepository):
     def __init__(self, db: Session):
@@ -750,10 +766,21 @@ class SQLiteAccessLogRepository(IAccessLogRepository):
         return self.db.query(AccessLog).all()
 
     def save(self, log: AccessLog) -> AccessLog:
-        self.db.add(log)
-        self.db.commit()
-        self.db.refresh(log)
-        return log
+            self.db.add(log)
+            self.db.commit()
+            self.db.refresh(log)
+            return log
+
+    def get_by_id(self, id: str) -> Optional[AccessLog]:
+        return self.db.query(AccessLog).filter(AccessLog.id == id).first()
+
+    def delete(self, id: str) -> bool:
+        log = self.get_by_id(id)
+        if log:
+            self.db.delete(log)
+            self.db.commit()
+            return True
+        return False
 
 
 class SQLiteStaffRepository(IStaffRepository):

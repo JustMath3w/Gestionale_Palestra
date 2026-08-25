@@ -1046,6 +1046,27 @@
         </div>
     </div>
 
+    <!-- MODALE RICARICA ADMIN -->
+    <div class="modal" id="adminRechargeModal">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <h2>Ricarica Credito Utente</h2>
+                <button class="modal-close" onclick="document.getElementById('adminRechargeModal').classList.remove('open')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Inserisci l'importo da accreditare sul conto dell'utente (€):</p>
+                <div class="form-group margin-top-20">
+                    <input type="number" id="adminRechargeAmountInput" placeholder="es. 50.00" min="1" step="0.01">
+                </div>
+                <input type="hidden" id="adminRechargeMemberId">
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="document.getElementById('adminRechargeModal').classList.remove('open')">Annulla</button>
+                <button class="btn btn-success" id="confirmAdminRechargeBtn">Accredita</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modale Notifiche/Alert personalizzato -->
     <div class="toast" id="toast">Notifica</div>
 

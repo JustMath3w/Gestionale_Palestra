@@ -177,7 +177,7 @@ class Course(Base):
             parts = []
             for d_code, slots in ws.items():
                 d_label = DAY_SHORT_IT.get(d_code, d_code)
-                slots_label = ", ".join(slots)
+                slots_label = ", ".join(str(s) for s in slots if s)
                 parts.append(f"{d_label}: {slots_label}")
             return " | ".join(parts)
         day_shorts = [DAY_SHORT_IT.get(d, d) for d in self.days]

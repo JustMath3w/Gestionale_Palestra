@@ -189,6 +189,14 @@ def toggle_member_status(member_id: str, uow: GymUnitOfWork = Depends(get_uow)):
     return saved
 
 
+@app.delete("/api/members/{member_id}", tags=["Membri (Admin)"])
+def delete_member(member_id: str, uow: GymUnitOfWork = Depends(get_uow)):
+    member = uow.members.get_by_id(member_id)
+    if not member:
+        raise HTTPException(status_code=404, detail="Membro non trovato.")
+
+    uow.members.delete(member_id)
+    return {"success": True, "message": "Membro eliminato con successo."}
 
 # =====================================================================
 # API: ABBONAMENTI
@@ -204,6 +212,8 @@ def purchase_subscription(member_id: str, sub_req: schemas.MemberSubscriptionCre
     member = uow.members.get_by_id(member_id)
     if not member:
         raise HTTPException(status_code=404, detail="Membro non trovato.")
+    if not member.is_active:
+        raise HTTPException(status_code=403, detail="Account sospeso. L'operazione non è permessa.")
         
     sub_type = uow.subscription_types.get_by_id(sub_req.subscription_type_id)
     if not sub_type:
@@ -351,6 +361,8 @@ def book_service(booking_data: schemas.BookingCreate, uow: GymUnitOfWork = Depen
     member = uow.members.get_by_id(booking_data.member_id)
     if not member:
         raise HTTPException(status_code=404, detail="Membro non trovato.")
+    if not member.is_active:
+        raise HTTPException(status_code=403, detail="Account sospeso. L'operazione non è permessa.")
         
     # Verifica validità abbonamento dell'utente
     active_subs = [s for s in uow.subscriptions.get_by_member_id(booking_data.member_id) if s.is_active]
@@ -538,6 +550,8 @@ def buy_product(purchase_req: schemas.PurchaseCreate, uow: GymUnitOfWork = Depen
     member = uow.members.get_by_id(purchase_req.member_id)
     if not member:
         raise HTTPException(status_code=404, detail="Membro non trovato.")
+    if not member.is_active:
+        raise HTTPException(status_code=403, detail="Account sospeso. L'operazione non è permessa.")
         
     product = uow.products.get_by_id(purchase_req.product_id)
     if not product:
@@ -553,7 +567,7 @@ def buy_product(purchase_req: schemas.PurchaseCreate, uow: GymUnitOfWork = Depen
         sub_type = uow.subscription_types.get_by_id(active_subs[0].subscription_type_id)
         if sub_type:
             sub_services = sub_type.services or []
-            if "bevande" in sub_services or "vip" in sub_type.id:
+            if "bevande" in sub_services:
                 final_price = 0.0
 
     if member.balance < final_price:
@@ -569,7 +583,7 @@ def buy_product(purchase_req: schemas.PurchaseCreate, uow: GymUnitOfWork = Depen
     new_purchase = models.Purchase(
         member_id=purchase_req.member_id,
         product_name=product.name,
-        price=product.price,
+        price=final_price,
         purchase_date=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     )
     saved = uow.purchases.save(new_purchase)

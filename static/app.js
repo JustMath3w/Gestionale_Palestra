@@ -375,6 +375,11 @@ async function loadClientDashboard() {
         const response = await fetch(`/api/members/${currentMember.id}`);
         if (response.ok) {
             currentMember = await response.json();
+            if (!currentMember.is_active) {
+                showToast("Il tuo account è stato sospeso dall'amministratore.", "error");
+                document.getElementById("logoutBtn").click();
+                return;
+            }
             sessionStorage.setItem("gym_member", JSON.stringify(currentMember));
         }
     } catch (e) {}
@@ -736,8 +741,14 @@ async function buyProduct(productId) {
             const detail = await parseResponseError(response, "Errore di acquisto");
             throw new Error(detail);
         }
-
-        showToast("Prodotto acquistato! Credito scalato.", "success");
+        
+        const purchase = await response.json();
+        if (purchase.price === 0) {
+            showToast("Prodotto gratuito grazie al tuo abbonamento!", "success");
+        } else {
+            showToast("Prodotto acquistato! Credito scalato.", "success");
+        }
+        
         loadClientDashboard();
     } catch (err) {
         showToast(err.message, "error");
@@ -1183,6 +1194,9 @@ async function loadAdminMembersTable() {
                     <button class="btn ${m.is_active ? 'btn-danger' : 'btn-success'} btn-sm" onclick="toggleAccountStatus('${m.id}')" title="${m.is_active ? 'Sospendi Account' : 'Attiva Account'}">
                         <i class="fa-solid ${m.is_active ? 'fa-user-slash' : 'fa-user-check'}"></i> ${m.is_active ? 'Sospendi' : 'Attiva'}
                     </button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteMember('${m.id}')" title="Elimina Account">
+                        <i class="fa-solid fa-trash"></i> Elimina
+                    </button>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -1190,12 +1204,19 @@ async function loadAdminMembersTable() {
     } catch (e) {}
 }
 
-async function adminRecharge(memberId) {
-    const valStr = prompt("Inserisci l'importo da accreditare sul conto dell'utente (€):");
-    if (valStr === null) return;
-    const amount = parseFloat(valStr);
+function adminRecharge(memberId) {
+    document.getElementById("adminRechargeMemberId").value = memberId;
+    document.getElementById("adminRechargeAmountInput").value = "";
+    document.getElementById("adminRechargeModal").classList.add("open");
+}
+
+document.getElementById("confirmAdminRechargeBtn")?.addEventListener("click", async () => {
+    const memberId = document.getElementById("adminRechargeMemberId").value;
+    const amountStr = document.getElementById("adminRechargeAmountInput").value;
+    const amount = parseFloat(amountStr);
+    
     if (isNaN(amount) || amount <= 0) {
-        alert("Importo non valido!");
+        showToast("Importo non valido!", "error");
         return;
     }
 
@@ -1207,12 +1228,15 @@ async function adminRecharge(memberId) {
         });
         if (response.ok) {
             showToast("Accredito amministrativo eseguito!", "success");
+            document.getElementById("adminRechargeModal").classList.remove("open");
             loadAdminDashboard();
         } else {
             showToast("Impossibile completare l'operazione", "error");
         }
-    } catch (e) {}
-}
+    } catch (e) {
+        showToast("Errore di rete", "error");
+    }
+});
 
 async function toggleAccountStatus(memberId) {
     customConfirm("Sei sicuro di voler modificare lo stato di attivazione di questo account?", async () => {
@@ -1224,7 +1248,25 @@ async function toggleAccountStatus(memberId) {
             } else {
                 showToast("Impossibile modificare lo stato dell'account", "error");
             }
-        } catch (e) {}
+        } catch (e) {
+            showToast("Errore di connessione", "error");
+        }
+    });
+}
+
+async function deleteMember(memberId) {
+    customConfirm("Attenzione: Sei sicuro di voler eliminare definitivamente questo utente? Lo storico delle sue transazioni e acquisti verrà conservato a fini statistici.", async () => {
+        try {
+            const response = await fetch(`/api/members/${memberId}`, { method: "DELETE" });
+            if (response.ok) {
+                showToast("Utente eliminato con successo!", "success");
+                loadAdminDashboard();
+            } else {
+                showToast("Impossibile eliminare l'utente", "error");
+            }
+        } catch (e) {
+            showToast("Errore di connessione", "error");
+        }
     });
 }
 
