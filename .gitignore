@@ -18,8 +18,6 @@ htmlcov/
 
 # Local databases & user data (Palestra)
 data/
-*.db
-gym.db
 
 # OS files
 .DS_Store
