@@ -27,12 +27,26 @@ models_map = {
     "staff.json": Staff
 }
 
+# Pass 1: Upsert all data
+json_ids_per_model = {}
 for filename, ModelClass in models_map.items():
     print(f"Migrating {filename}...")
     data_list = load_json(filename)
+    json_ids = set()
     for data in data_list:
         obj = ModelClass.from_dict(data)
         db.merge(obj)
+        json_ids.add(str(obj.id))
+    json_ids_per_model[ModelClass] = json_ids
+
+# Pass 2: Delete missing records (in reverse order to respect foreign keys)
+for filename, ModelClass in reversed(list(models_map.items())):
+    db_items = db.query(ModelClass).all()
+    json_ids = json_ids_per_model[ModelClass]
+    for db_item in db_items:
+        if str(db_item.id) not in json_ids:
+            print(f"Deleting {db_item.id} from {ModelClass.__tablename__}")
+            db.delete(db_item)
 
 db.commit()
 db.close()
