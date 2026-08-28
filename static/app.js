@@ -69,6 +69,7 @@ function renderAdminScheduleCell(weeklyScheduleObj) {
 // --- STATO DELL'APPLICAZIONE ---
 let currentMember = null;
 let isAdminLoggedIn = false; // Stato sessione amministratore
+let currentAdminRole = null; // Ruolo sessione amministratore (admin/staff)
 let affluenceChartInstance = null;
 let popularityChartInstance = null;
 
@@ -245,8 +246,11 @@ document.getElementById("adminLoginForm").addEventListener("submit", async (e) =
             const err = await response.json();
             throw new Error(err.detail || "Errore di accesso");
         }
+        
+        const data = await response.json();
 
         isAdminLoggedIn = true;
+        currentAdminRole = data.role;
         sessionStorage.setItem("gym_admin", "true");
         
         document.getElementById("adminAuthContainer").classList.add("hidden");
@@ -2744,6 +2748,18 @@ function switchAdminTab(tabId) {
     const targetBtn = document.querySelector(`.admin-subtab[onclick="switchAdminTab('${tabId}')"]`);
     if (targetBtn) {
         targetBtn.classList.add('active');
+    }
+    
+    // Mostra o nascondi "Gestione Staff" in base al ruolo
+    if (tabId === 'users') {
+        const staffSection = document.getElementById('gestione-staff-section');
+        if (staffSection) {
+            if (currentAdminRole === 'staff') {
+                staffSection.style.display = 'none';
+            } else {
+                staffSection.style.display = 'block';
+            }
+        }
     }
 }
 window.switchAdminTab = switchAdminTab;

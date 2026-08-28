@@ -511,6 +511,7 @@
                     </div>
 
                     <!-- GESTIONE STAFF (RF27) -->
+                    <div id="gestione-staff-section">
                     <div class="section-title-wrapper margin-top-40" style="display: flex; justify-content: space-between; align-items: center;">
                         <div>
                             <h2>Gestione Staff (RF27)</h2>
@@ -534,6 +535,7 @@
                                 </tbody>
                             </table>
                         </div>
+                    </div>
                     </div>
 
                     </div>
@@ -1005,7 +1007,7 @@
                 <form id="formAddStaff" onsubmit="submitStaff(event)">
                     <div class="form-group">
                         <label>Username</label>
-                        <input type="text" id="staffUsername" class="form-control" required placeholder="Es. trainer1">
+                        <input type="text" id="staffUsername" class="form-control" required placeholder="Es. staff1">
                     </div>
                     <div class="form-group">
                         <label>Email</label>
@@ -1019,8 +1021,7 @@
                         <label>Ruolo</label>
                         <select id="staffRole" class="form-control" required>
                             <option value="admin">Amministratore</option>
-                            <option value="trainer">Trainer</option>
-                            <option value="receptionist">Receptionist</option>
+                            <option value="staff">Staff</option>
                         </select>
                     </div>
                     <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 15px;">Salva Staff</button>
